@@ -102,12 +102,20 @@ static unsigned char  S_apu_wave_level_sign[APU_NUM_WAVE_VOICES];
 
 /* highpass filters */
 
-/* the coefficient is: 1 / (2 * PI * DELTA_T * CUTOFF_FC + 1)   */
-/* where DELTA_T is 1 / CLOCK_RATE and CUTOFF_FC is 27.5 (A-0)  */
-#define APU_HP_COEF 0.998203362923f
+/* the multipliers are fractions over */ 
+/* 32768, expressed as numerators     */
 
-/* the multiplier is the coefficient expressed as a fraction over 32768 */
-#define APU_HP_MULT 32710
+/* gnu octave code to generate them:  */
+/*   fs = 96000;                      */
+/*   fc = 27.5 / (fs / 2);            */
+/*   [b, a] = butter(1, fc, "high");  */
+/*   d = round(32768 * b);            */
+/*   c = round(32768 * a);            */
+#define APU_HP_MULT_A0  32768
+#define APU_HP_MULT_A1 -32709
+
+#define APU_HP_MULT_B0  32739
+#define APU_HP_MULT_B1 -32739
 
 static short S_apu_hp_left_in[2];
 static short S_apu_hp_left_out[2];
@@ -120,7 +128,23 @@ static short S_apu_hp_right_out[2];
 
 #define APU_LP_KERNEL_SIZE (APU_LP_M + 1)
 
-static short S_apu_lp_kernel[APU_LP_KERNEL_SIZE];
+/* gnu octave code to generate the kernel:  */
+/*   fs = 96000                             */
+/*   fc =  9000 / (fs / 2);                 */
+/*   b = fir1(64, fc);                      */
+/*   c = round(32768 * b);                  */
+
+static short S_apu_lp_kernel[APU_LP_KERNEL_SIZE] = 
+  {   -3,   -18,   -30,   -35,   -28,    -6,    29,    67, 
+      93,    89,    43,   -42,  -143,  -222,  -236,  -156, 
+      17,   242,   442,   527,   425,   116,  -342,  -818, 
+   -1130, -1096,  -588,   415,  1805,  3356,  4774,  5768, 
+    6126, 
+    5768,  4774,  3356,  1805,   415,  -588, -1096, -1130, 
+    -818,  -342,   116,   425,   527,   442,   242,    17, 
+    -156,  -236,  -222,  -143,   -42,    43,    89,    93, 
+      67,    29,    -6,   -28,   -35,   -30,   -18,    -3 
+  };
 
 static short S_apu_lp_left_in[APU_LP_KERNEL_SIZE];
 static short S_apu_lp_right_in[APU_LP_KERNEL_SIZE];
@@ -347,17 +371,17 @@ int apu_update_out()
     S_apu_hp_left_in[0] = samp_left;
 
     S_apu_hp_left_out[1] = S_apu_hp_left_out[0];
-    S_apu_hp_left_out[0] = (APU_HP_MULT * ( S_apu_hp_left_out[1] + 
-                                            S_apu_hp_left_in[0] - 
-                                            S_apu_hp_left_in[1])) / 32768;
+    S_apu_hp_left_out[0] = ((APU_HP_MULT_B0 * S_apu_hp_left_in[0]) / 32768) + 
+                           ((APU_HP_MULT_B1 * S_apu_hp_left_in[1]) / 32768) - 
+                           ((APU_HP_MULT_A1 * S_apu_hp_left_out[1]) / 32768);
 
     S_apu_hp_right_in[1] = S_apu_hp_right_in[0];
     S_apu_hp_right_in[0] = samp_left;
 
     S_apu_hp_right_out[1] = S_apu_hp_right_out[0];
-    S_apu_hp_right_out[0] = (APU_HP_MULT * (S_apu_hp_right_out[1] + 
-                                            S_apu_hp_right_in[0] - 
-                                            S_apu_hp_right_in[1])) / 32768;
+    S_apu_hp_right_out[0] = ((APU_HP_MULT_B0 * S_apu_hp_right_in[0]) / 32768) + 
+                            ((APU_HP_MULT_B1 * S_apu_hp_right_in[1]) / 32768) - 
+                            ((APU_HP_MULT_A1 * S_apu_hp_right_out[1]) / 32768);
 
     /* update lowpass filter input buffers (left & right) */
     S_apu_lp_left_in[S_apu_lp_buf_pos] = S_apu_hp_left_out[0];
@@ -410,7 +434,6 @@ int apu_compute_tables()
   int n;
 
   double val;
-  double normal;
 
   unsigned char wavetable[APU_WT_STEPS];
   unsigned char level;
@@ -590,52 +613,6 @@ int apu_compute_tables()
         }
       }
     }
-  }
-
-  /* lowpass fir filter kernel */
-
-  /* The equations are from Steven W. Smith's The Scientist and         */
-  /* Engineer's Guide to Digital Signal Processing, page 290 (Ch. 16)   */
-
-  /* the cutoff frequency is defined as a fraction of the clock rate    */
-  /* with a clock rate of 96 khz and a sampling rate of 24 khz, the     */
-  /* output nyquist frequency is 12 khz, or 0.125. since the transition */
-  /* band is approximately 4 / M, with M = 64, that gives us 0.0625.    */
-  /* thus the cutoff is 0.09375 (center of transition band)             */
-
-  /* compute normalization factor (sum of all kernel values) */
-  normal = 0.0f;
-
-  for (m = 0; m < APU_LP_KERNEL_SIZE; m++)
-  {
-    if (m == (APU_LP_M / 2))
-      val = 2 * PI * 0.09375f;
-    else
-    {
-      /* windowed sinc with hamming window */
-      val = sin(2 * PI * 0.09375f * (m - APU_LP_M / 2)) / (m - APU_LP_M / 2);
-      val *= 0.54f - 0.46f * cos(2 * PI * (m / (double) APU_LP_M));
-    }
-
-    normal += val;
-  }
-
-  /* compute final kernel */
-  for (m = 0; m < APU_LP_KERNEL_SIZE; m++)
-  {
-    if (m == (APU_LP_M / 2))
-      val = 2 * PI * 0.09375f;
-    else
-    {
-      /* windowed sinc with hamming window */
-      val = sin(2 * PI * 0.09375f * (m - APU_LP_M / 2)) / (m - APU_LP_M / 2);
-      val *= 0.54f - 0.46f * cos(2 * PI * (m / (double) APU_LP_M));
-    }
-
-    val /= normal;
-    val *= 32767;
-
-    S_apu_lp_kernel[m] = (unsigned short) (val + 0.5f);
   }
 
   /* testing */
