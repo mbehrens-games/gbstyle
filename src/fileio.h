@@ -9,7 +9,7 @@
 int export_wav_open_file(char* filename);
 int export_wav_close_file();
 int export_wav_write_header();
-int export_wav_write_block(short* sample_buf, unsigned long num_samples);
+int export_wav_write_block(short* sample_buf, unsigned int num_samples);
 
 #endif
 

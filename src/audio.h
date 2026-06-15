@@ -5,8 +5,8 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
-extern short          G_audio_frame_buffer[];
-extern unsigned long  G_audio_frame_num_samples;
+extern short        G_audio_frame_buffer[];
+extern unsigned int G_audio_frame_num_samples;
 
 /* function declarations */
 int audio_init();

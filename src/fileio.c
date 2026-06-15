@@ -52,14 +52,14 @@ int export_wav_write_header()
 
   unsigned short audio_format;
   unsigned short num_channels;
-  unsigned long  sampling_rate;
-  unsigned long  byte_rate;
+  unsigned int  sampling_rate;
+  unsigned int  byte_rate;
   unsigned short sample_size;
   unsigned short bit_resolution;
 
-  unsigned long  chunk_size;
-  unsigned long  header_subchunk_size;
-  unsigned long  data_subchunk_size;
+  unsigned int  chunk_size;
+  unsigned int  header_subchunk_size;
+  unsigned int  data_subchunk_size;
 
   /* set and compute values */
   audio_format = WAV_AUDIO_FORMAT;
@@ -146,7 +146,7 @@ int export_wav_write_header()
 /******************************************************************************/
 /* export_wav_write_block()                                                   */
 /******************************************************************************/
-int export_wav_write_block(short* sample_buf, unsigned long num_samples)
+int export_wav_write_block(short* sample_buf, unsigned int num_samples)
 {
   unsigned int chunk_size;
   unsigned int data_subchunk_size;

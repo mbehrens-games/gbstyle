@@ -9,13 +9,12 @@
 #define APU_OUT_SAMPLES_PER_MS  (APU_OUT_SAMPLING_RATE / 1000)
 
 /* output levels */
-extern short G_apu_output_left;
-extern short G_apu_output_right;
+extern short G_apu_out_left;
+extern short G_apu_out_right;
 
 /* function declarations */
 int apu_reset();
-int apu_update();
-
+int apu_update_out();
 int apu_compute_tables();
 
 #endif

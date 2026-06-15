@@ -14,12 +14,12 @@
 
 /* audio frame buffer */
 short         G_audio_frame_buffer[AUDIO_FB_SIZE];
-unsigned long G_audio_frame_num_samples;
+unsigned int  G_audio_frame_num_samples;
 
 /* we can switch these to static once we're not writing to a wave file... */
 #if 0
-static short          S_audio_frame_buffer[AUDIO_FB_SIZE];
-static unsigned long  S_audio_frame_num_samples;
+static short        S_audio_frame_buffer[AUDIO_FB_SIZE];
+static unsigned int S_audio_frame_num_samples;
 #endif
 
 /******************************************************************************/
@@ -61,9 +61,9 @@ int audio_update_frame(unsigned short milliseconds)
 
   for (k = 0; k < milliseconds * APU_OUT_SAMPLES_PER_MS; k++)
   {
-    apu_update();
+    apu_update_out();
 
-    G_audio_frame_buffer[k] = G_apu_output_left;
+    G_audio_frame_buffer[k] = G_apu_out_left;
     G_audio_frame_num_samples += 1;
   }
 
