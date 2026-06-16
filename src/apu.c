@@ -220,16 +220,15 @@ int apu_update_waves()
       continue;
 
     /* lookup phase increment */
-    pitch_index = (S_apu_wave_note[m] % 12) * APU_WAVE_SEMITONE_STEPS;
+    pitch_index = S_apu_wave_note[m] * APU_WAVE_SEMITONE_STEPS;
 
     if (pitch_index > APU_WAVE_MAX_PITCH_INDEX)
       pitch_index = APU_WAVE_MAX_PITCH_INDEX;
     else if (pitch_index < 0)
       pitch_index = 0;
 
-    increment = S_apu_wave_pitch_table[pitch_index];
-
-    octave = (S_apu_wave_note[m] / 12);
+    increment = S_apu_wave_pitch_table[pitch_index % APU_WAVE_PITCH_TABLE_SIZE];
+    octave = pitch_index / APU_WAVE_PITCH_TABLE_SIZE;
 
     if (octave < (APU_WAVE_NUM_OCTAVES - 1))
       increment = increment >> (APU_WAVE_NUM_OCTAVES - 1 - octave);
