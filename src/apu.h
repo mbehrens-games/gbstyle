@@ -14,7 +14,6 @@ extern short G_apu_out_right;
 
 /* function declarations */
 int apu_reset();
-int apu_update_out();
-int apu_compute_tables();
+int apu_update();
 
 #endif

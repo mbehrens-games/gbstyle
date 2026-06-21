@@ -21,8 +21,6 @@ int main(int argc, char *argv[])
   int k;
 
   audio_init();
-
-  apu_compute_tables();
   apu_reset();
 
   /* just try writing out some stuff */

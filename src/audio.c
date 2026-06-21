@@ -61,7 +61,7 @@ int audio_update_frame(unsigned short milliseconds)
 
   for (k = 0; k < milliseconds * APU_OUT_SAMPLES_PER_MS; k++)
   {
-    apu_update_out();
+    apu_update();
 
     G_audio_frame_buffer[k] = G_apu_out_left;
     G_audio_frame_num_samples += 1;
