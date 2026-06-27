@@ -1,13 +1,18 @@
 clear;
 clc;
 
-vol_lin_tab = round(16384 * exp(log(2) * (0:255)/256));
+vol_lin_tab = round(32768 * exp(-1 * log(2) * (0:255)/256));
 
 dco_step_att_db = round(-256 * (log((2 * (0:7) + 1)/15) / log(2)));
 pcm_step_att_db = round(-256 * (log((2 * (0:127) + 1)/255) / log(2)));
 
-env_rise_att_db = round(-256 * (log((0:15)/15) / log(2)));
-env_fall_att_db = 64 * (15 - (0:15));
+%{
+env_rise_att_db = round(-256 * (log((0:63)/63) / log(2)));
+env_fall_att_db = 65 * (63 - (0:63));
+%}
+
+env_rise_att_db = round(4095 * exp(log(7 / 8) * (0:63)));
+env_fall_att_db = 65 * (63 - (0:63));
 
 env_rise_att_db(1) = 4095;
 env_fall_att_db(1) = 4095;
@@ -38,7 +43,7 @@ end
 printf("\n");
 
 printf("Envelope Rise Step to Attenuation DB Table: \n");
-for m = 1:16
+for m = 1:64
   printf("%4d, ", env_rise_att_db(m))
   if (mod(m, 8) == 0)
     printf("\n")
@@ -47,7 +52,7 @@ end
 printf("\n");
 
 printf("Envelope Fall Step to Attenuation DB Table: \n");
-for m = 1:16
+for m = 1:64
   printf("%4d, ", env_fall_att_db(m))
   if (mod(m, 8) == 0)
     printf("\n")
