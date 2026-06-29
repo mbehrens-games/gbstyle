@@ -1,22 +1,13 @@
 clear;
 clc;
 
-% note: envelope clock is 96000 hz / 64 = 1500 hz
+% envelope phase incs (13 blocks, 8 entries per block)
+env_phase_shifts = [9 - (0:8), zeros(1,4)];
+env_phase_steps = [ones(1,10), 2, 4, 8];
 
-% envelope period table (13 rows, 8 columns)
-env_period_lengths = [round(exp(log(2) * (9 - (0:9)))), ones(1,3)];
-env_period_steps = [ones(1,10), 2, 4, 8];
+env_phase_incs = round(65536 * ((8:15) / 16));
 
-env_period_gates = [0x5555, \ % 0101 0101 0101 0101
-                    0x5575, \ % 0101 0101 0111 0101
-                    0x5757, \ % 0101 0111 0101 0111
-                    0x5777, \ % 0101 0111 0111 0111
-                    0x7777, \ % 0111 0111 0111 0111
-                    0x77F7, \ % 0111 0111 1111 0111
-                    0x7F7F, \ % 0111 1111 0111 1111
-                    0x7FFF];  % 0111 1111 1111 1111
-
-% envelope wavetables (64 steps)
+% envelope wavetables (64 indices)
 env_index_db_rise = round(4095 * exp(log(7 / 8) * (0:63)));
 env_index_db_fall = 65 * (63 - (0:63));
 
@@ -28,21 +19,21 @@ patch_param_fall_speeds = round((0:31) * (11 / 4));
 patch_param_rise_speeds = 16 + patch_param_fall_speeds;
 
 % print out tables
-printf("Envelope Period Length Table: \n");
+printf("Envelope Phase Shifts Table: \n");
 for m = 1:13
-  printf("%d, ", env_period_lengths(m))
+  printf("%d, ", env_phase_shifts(m))
 end
 printf("\n\n");
 
-printf("Envelope Period Step Table: \n");
+printf("Envelope Phase Steps Table: \n");
 for m = 1:13
-  printf("%d, ", env_period_steps(m))
+  printf("%d, ", env_phase_steps(m))
 end
 printf("\n\n");
 
-printf("Envelope Period Gate Table: \n");
+printf("Envelope Phase Incs Table: \n");
 for m = 1:8
-  printf("0x%4X, ", env_period_gates(m))
+  printf("%5d, ", env_phase_incs(m))
 end
 printf("\n\n");
 
