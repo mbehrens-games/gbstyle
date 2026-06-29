@@ -13,18 +13,20 @@
 /* note: the tables are generated in gnu octave */
 /*       see the octave directory for .m files  */
 
-/* clock, dividers, and timer */
+/**********/
+/* CLOCKS */
+/**********/
 
 /* the clock rate is a multiple of 1000 so that   */
 /* there are an integer number of samples per ms. */
 #define APU_CLOCK_RATE        96000
 #define APU_CLOCKS_PER_SAMPLE (APU_CLOCK_RATE / APU_OUT_SAMPLING_RATE)
 
-#define APU_ENV_CLOCK_DIVIDER    6  /* envelope clock is 16000  */
-#define APU_LFO_CLOCK_DIVIDER   32  /* lfo clock is 3000        */
-#define APU_SEQ_CLOCK_DIVIDER   16  /* sequencer clock is 6000  */
+#define APU_SEQ_CLOCK_DIVIDER    24  /* sequencer clock is 4000  */
+#define APU_LFO_CLOCK_DIVIDER   256  /* lfo clock is 375         */
+#define APU_ENV_CLOCK_DIVIDER    64  /* envelope clock is 1500   */
 
-#define APU_TIMER_CLOCK_DIVIDER 48  /* lcm of the other dividers */
+#define APU_TIMER_CLOCK_DIVIDER 768  /* lcm of the other dividers */
 
 static unsigned short S_apu_timer;
 
@@ -39,6 +41,10 @@ static unsigned short S_apu_timer;
 #define APU_PHASE_REG_MASK      (APU_PHASE_REG_SIZE - 1)
 
 #define APU_PHASE_REG_MANTISSA  15
+
+/********************/
+/* VOLUME & PANNING */
+/********************/
 
 /* volume db to linear table */
 #define APU_VOL_LIN_NUM_BLOCKS 16  /* blocks 0 to 15 */
@@ -105,28 +111,9 @@ static unsigned short S_apu_pcm_step_db_table[128] =
       21,   18,   15,   12,    9,    6,    3,    0
   };
 
-/* envelope step to db tables (6 bits) */
-static unsigned short S_apu_env_step_db_rise_table[64] = 
-  { 4095, 3583, 3135, 2743, 2400, 2100, 1838, 1608,
-    1407, 1231, 1077,  943,  825,  722,  631,  553,
-     483,  423,  370,  324,  283,  248,  217,  190,
-     166,  145,  127,  111,   97,   85,   75,   65,
-      57,   50,   44,   38,   33,   29,   26,   22,
-      20,   17,   15,   13,   11,   10,    9,    8,
-       7,    6,    5,    5,    4,    3,    3,    3,
-       2,    2,    2,    2,    1,    1,    1,    1
-  };
-
-static unsigned short S_apu_env_step_db_fall_table[64] = 
-  { 4095, 4030, 3965, 3900, 3835, 3770, 3705, 3640,
-    3575, 3510, 3445, 3380, 3315, 3250, 3185, 3120,
-    3055, 2990, 2925, 2860, 2795, 2730, 2665, 2600,
-    2535, 2470, 2405, 2340, 2275, 2210, 2145, 2080,
-    2015, 1950, 1885, 1820, 1755, 1690, 1625, 1560,
-    1495, 1430, 1365, 1300, 1235, 1170, 1105, 1040,
-     975,  910,  845,  780,  715,  650,  585,  520,
-     455,  390,  325,  260,  195,  130,   65,    0
-  };
+/*******/
+/* DCO */
+/*******/
 
 /* dco phase increment table */
 #define APU_DCO_PHASE_INC_SORTA_CENTS 64
@@ -234,53 +221,60 @@ static unsigned int S_apu_dco_phase_inc_table[APU_DCO_PHASE_INC_TABLE_SIZE] =
      90787,  90869,  90951,  91033,  91115,  91198,  91280,  91362
   };
 
-/* envelope phase increment table */
-#define APU_ENV_PHASE_INC_SORTA_CENTS 16
-#define APU_ENV_PHASE_INC_NUM_BLOCKS  13
-#define APU_ENV_PHASE_INC_TABLE_SIZE  (12 * APU_ENV_PHASE_INC_SORTA_CENTS)
+/*************/
+/* ENVELOPES */
+/*************/
 
-#define APU_ENV_PHASE_INC_MAX_INDEX   2495 /* num_blocks * table_size - 1 */
+#define APU_ENV_PERIOD_TABLE_ROWS 13
+#define APU_ENV_PERIOD_TABLE_COLS  8
+#define APU_ENV_PERIOD_TABLE_SIZE (13 * 8)
 
-static unsigned int S_apu_env_phase_inc_table[APU_ENV_PHASE_INC_TABLE_SIZE] = 
-  { 344064, 345308, 346557, 347811, 349069, 350331, 351598, 352870,
-    354146, 355427, 356712, 358002, 359297, 360596, 361901, 363210,
-    364523, 365841, 367165, 368493, 369825, 371163, 372505, 373852,
-    375204, 376561, 377923, 379290, 380662, 382039, 383420, 384807,
-    386199, 387596, 388997, 390404, 391816, 393233, 394655, 396083,
-    397515, 398953, 400396, 401844, 403297, 404756, 406220, 407689,
-    409163, 410643, 412128, 413619, 415115, 416616, 418123, 419635,
-    421153, 422676, 424205, 425739, 427279, 428824, 430375, 431931,
-    433493, 435061, 436635, 438214, 439799, 441389, 442986, 444588,
-    446196, 447810, 449429, 451055, 452686, 454323, 455966, 457615,
-    459270, 460931, 462598, 464271, 465951, 467636, 469327, 471024,
-    472728, 474438, 476154, 477876, 479604, 481339, 483079, 484827,
-    486580, 488340, 490106, 491878, 493657, 495443, 497235, 499033,
-    500838, 502649, 504467, 506292, 508123, 509960, 511805, 513656,
-    515514, 517378, 519249, 521127, 523012, 524903, 526802, 528707,
-    530619, 532538, 534464, 536397, 538337, 540284, 542238, 544199,
-    546168, 548143, 550125, 552115, 554112, 556116, 558127, 560146,
-    562171, 564205, 566245, 568293, 570348, 572411, 574481, 576559,
-    578644, 580737, 582837, 584945, 587061, 589184, 591315, 593454,
-    595600, 597754, 599916, 602086, 604263, 606449, 608642, 610843,
-    613052, 615270, 617495, 619728, 621969, 624219, 626476, 628742,
-    631016, 633298, 635589, 637887, 640194, 642510, 644834, 647166,
-    649506, 651855, 654213, 656579, 658954, 661337, 663729, 666129,
-    668538, 670956, 673383, 675818, 678262, 680715, 683177, 685648
+/* envelope period tables */
+static unsigned short S_apu_env_period_length_table[13] = 
+  { 512, 256, 128, 64, 32, 16, 8, 4, 2, 1, 1, 1, 1 };
+
+static unsigned short S_apu_env_period_step_table[13] = 
+  { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 4, 8 };
+
+static unsigned short S_apu_env_period_gate_table[8] = 
+  { 0x5555, 0x5575, 0x5757, 0x5777, 0x7777, 0x77F7, 0x7F7F, 0x7FFF };
+
+/* envelope index to db tables (6 bits) */
+static unsigned short S_apu_env_index_db_rise_table[64] = 
+  { 4095, 3583, 3135, 2743, 2400, 2100, 1838, 1608,
+    1407, 1231, 1077,  943,  825,  722,  631,  553,
+     483,  423,  370,  324,  283,  248,  217,  190,
+     166,  145,  127,  111,   97,   85,   75,   65,
+      57,   50,   44,   38,   33,   29,   26,   22,
+      20,   17,   15,   13,   11,   10,    9,    8,
+       7,    6,    5,    5,    4,    3,    3,    3,
+       2,    2,    2,    2,    1,    1,    1,    1
+  };
+
+static unsigned short S_apu_env_index_db_fall_table[64] = 
+  { 4095, 4030, 3965, 3900, 3835, 3770, 3705, 3640,
+    3575, 3510, 3445, 3380, 3315, 3250, 3185, 3120,
+    3055, 2990, 2925, 2860, 2795, 2730, 2665, 2600,
+    2535, 2470, 2405, 2340, 2275, 2210, 2145, 2080,
+    2015, 1950, 1885, 1820, 1755, 1690, 1625, 1560,
+    1495, 1430, 1365, 1300, 1235, 1170, 1105, 1040,
+     975,  910,  845,  780,  715,  650,  585,  520,
+     455,  390,  325,  260,  195,  130,   65,    0
   };
 
 /* patch param envelope rise/fall rate tables */
-static unsigned short S_apu_env_rise_rate_table[32] = 
-  {  384,  448,  512,  576,  640,  704,  768,  832,
-     896,  960, 1024, 1088, 1152, 1216, 1280, 1344,
-    1408, 1472, 1536, 1600, 1664, 1728, 1792, 1856,
-    1920, 1984, 2048, 2112, 2176, 2240, 2304, 2368
+static unsigned short S_apu_param_env_speed_rise_table[32] = 
+  {  16,  19,  22,  24,  27,  30,  33,  35,
+     38,  41,  44,  46,  49,  52,  55,  57,
+     60,  63,  66,  68,  71,  74,  77,  79,
+     82,  85,  88,  90,  93,  96,  99, 101
   };
 
-static unsigned short S_apu_env_fall_rate_table[32] = 
-  {    0,   64,  128,  192,  256,  320,  384,  448,
-     512,  576,  640,  704,  768,  832,  896,  960,
-    1024, 1088, 1152, 1216, 1280, 1344, 1408, 1472,
-    1536, 1600, 1664, 1728, 1792, 1856, 1920, 1984
+static unsigned short S_apu_param_env_speed_fall_table[32] = 
+  {  0,   3,   6,   8,  11,  14,  17,  19,
+    22,  25,  28,  30,  33,  36,  39,  41,
+    44,  47,  50,  52,  55,  58,  61,  63,
+    66,  69,  72,  74,  77,  80,  83,  85,
   };
 
 /* envelope keyscaling */
@@ -296,6 +290,10 @@ static unsigned short S_apu_env_fall_rate_table[32] =
 #define APU_DCO_WAVETABLE_SIZE    (APU_DCO_WAVETABLE_ENTRIES * APU_WAVE_BYTES)
 
 static unsigned char S_apu_dco_waves[APU_DCO_WAVETABLE_SIZE];
+
+/*******/
+/* LFO */
+/*******/
 
 #define APU_LFO_WAVETABLE_ENTRIES 8
 #define APU_LFO_WAVETABLE_SIZE    (APU_LFO_WAVETABLE_ENTRIES * APU_WAVE_BYTES)
@@ -318,6 +316,14 @@ static unsigned char S_apu_lfo_waves[APU_LFO_WAVETABLE_SIZE] =
     0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
     0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
   };
+
+/*******/
+/* PCM */
+/*******/
+
+/***********/
+/* FILTERS */
+/***********/
 
 /* highpass filters */
 #define APU_HP_MULT_A0  32768
@@ -351,6 +357,10 @@ static short S_apu_lp_R_in[APU_LP_BUFFER_SIZE];
 
 static short S_apu_lp_buf_pos;
 
+/**********/
+/* VOICES */
+/**********/
+
 /* voices */
 #define APU_NUM_DCO_VOICES 10
 #define APU_NUM_PCM_VOICES  6
@@ -367,8 +377,10 @@ static unsigned char  S_apu_param_env_rr[APU_NUM_DCO_VOICES];
 static unsigned char  S_apu_param_env_sl[APU_NUM_DCO_VOICES];
 
 static unsigned char  S_apu_env_stage[APU_NUM_DCO_VOICES];
-static unsigned int   S_apu_env_phase[APU_NUM_DCO_VOICES];
-static unsigned short S_apu_env_step[APU_NUM_DCO_VOICES];
+static unsigned short S_apu_env_speed[APU_NUM_DCO_VOICES];
+static unsigned short S_apu_env_counter[APU_NUM_DCO_VOICES];
+static unsigned short S_apu_env_mask[APU_NUM_DCO_VOICES];
+static unsigned short S_apu_env_index[APU_NUM_DCO_VOICES];
 
 static unsigned char  S_apu_dco_note[APU_NUM_DCO_VOICES];
 static unsigned int   S_apu_dco_phase[APU_NUM_DCO_VOICES];
@@ -413,8 +425,10 @@ int apu_reset()
   for (m = 0; m < APU_NUM_DCO_VOICES; m++)
   {
     S_apu_env_stage[m] = APU_ENV_STAGE_R;
-    S_apu_env_phase[m] = 0;
-    S_apu_env_step[m] = 0;
+    S_apu_env_speed[m] = 0;
+    S_apu_env_counter[m] = 0;
+    S_apu_env_mask[m] = 0x8000;
+    S_apu_env_index[m] = 0;
 
     S_apu_dco_note[m] = APU_NOTE_MIDDLE_C;
     S_apu_dco_phase[m] = 0;
@@ -452,6 +466,10 @@ int apu_reset()
   S_apu_param_env_sl[0] = 0;
 
   S_apu_env_stage[0] = APU_ENV_STAGE_A;
+  S_apu_env_speed[0] = S_apu_param_env_speed_rise_table[S_apu_param_env_ar[0]];
+  S_apu_env_counter[0] = S_apu_env_period_length_table[S_apu_env_speed[0] / 8];
+  S_apu_env_mask[0] = 0x8000;
+  S_apu_env_index[0] = 0;
 
   return 0;
 }
@@ -479,14 +497,8 @@ int apu_advance_envelopes()
 {
   int m;
 
-  unsigned short index;
-  unsigned short block;
-  unsigned short shift;
-
-  unsigned int   increment;
-  unsigned short step;
-
-  int val;
+  unsigned short row;
+  unsigned short col;
 
   for (m = 0; m < APU_NUM_DCO_VOICES; m++)
   {
@@ -494,55 +506,53 @@ int apu_advance_envelopes()
     if (m > 0)
       continue;
 
-    /* determine phase increment */
-    if (S_apu_env_stage[m] == APU_ENV_STAGE_A)
-      val = S_apu_env_rise_rate_table[S_apu_param_env_ar[m] & 0x1F];
-    else if (S_apu_env_stage[m] == APU_ENV_STAGE_D)
-      val = S_apu_env_fall_rate_table[S_apu_param_env_dr[m] & 0x1F];
-    else if (S_apu_env_stage[m] == APU_ENV_STAGE_S)
-      val = S_apu_env_fall_rate_table[S_apu_param_env_sr[m] & 0x1F];
-    else
-      val = S_apu_env_fall_rate_table[S_apu_param_env_rr[m] & 0x1F];
+    /* set row and column in period table */
+    row = S_apu_env_speed[m] / 8;
+    col = S_apu_env_speed[m] % 8;
 
-    if (val > APU_ENV_PHASE_INC_MAX_INDEX)
-      val = APU_ENV_PHASE_INC_MAX_INDEX;
-    else if (val < 0)
-      val = 0;
+    /* decrement counter, check if period has elapsed */
+    S_apu_env_counter[m] -= 1;
 
-    index = val % APU_ENV_PHASE_INC_TABLE_SIZE;
-    block = val / APU_ENV_PHASE_INC_TABLE_SIZE;
-
-    shift = (APU_ENV_PHASE_INC_NUM_BLOCKS - 1) - block;
-    increment = S_apu_env_phase_inc_table[index];
-
-    if (shift > 0)
-      increment = increment >> shift;
-
-    /* update phase and envelope step */
-    S_apu_env_phase[m] += increment;
-
-    if (S_apu_env_phase[m] >= APU_PHASE_REG_SIZE)
+    if (S_apu_env_counter[m] == 0)
     {
-      step = S_apu_env_step[m];
-
-      if (S_apu_env_stage[m] == APU_ENV_STAGE_A)
+      /* update index if the gate bit is set */
+      if (S_apu_env_period_gate_table[col] & S_apu_env_mask[m])
       {
-        if (step < 63)
-          step += 1;
+        if (S_apu_env_stage[m] == APU_ENV_STAGE_A)
+        {
+          if (S_apu_env_index[m] <= (63 - S_apu_env_period_step_table[row]))
+            S_apu_env_index[m] += S_apu_env_period_step_table[row];
+          else
+            S_apu_env_index[m] = 63;
 
-        if (step == 63)
-          S_apu_env_stage[m] = APU_ENV_STAGE_D;
+          if (S_apu_env_index[m] == 63)
+          {
+            S_apu_env_stage[m] = APU_ENV_STAGE_D;
+
+            S_apu_env_speed[m] = 
+              S_apu_param_env_speed_fall_table[S_apu_param_env_dr[m]];
+
+            row = S_apu_env_speed[m] / 8;
+            col = S_apu_env_speed[m] % 8;
+          }
+        }
+        else
+        {
+          if (S_apu_env_index[m] >= 0 + S_apu_env_period_step_table[row])
+            S_apu_env_index[m] -= S_apu_env_period_step_table[row];
+          else
+            S_apu_env_index[m] = 0;
+        }
       }
+
+      /* shift mask, reload period counter */
+      if (S_apu_env_mask[m] == 0x0001)
+        S_apu_env_mask[m] = 0x8000;
       else
-      {
-        if (step > 0)
-          step -= 1;
-      }
+        S_apu_env_mask[m] = (S_apu_env_mask[m] >> 1) & 0x7FFF;
 
-      S_apu_env_step[m] = step;
+      S_apu_env_counter[m] = S_apu_env_period_length_table[row];
     }
-
-    S_apu_env_phase[m] &= APU_PHASE_REG_MASK;
   }
 
   return 0;
@@ -616,9 +626,9 @@ int apu_advance_dcos()
 
     /* apply envelope */
     if (S_apu_env_stage[m] == APU_ENV_STAGE_A)
-      val += S_apu_env_step_db_rise_table[S_apu_env_step[m]];
+      val += S_apu_env_index_db_rise_table[S_apu_env_index[m]];
     else
-      val += S_apu_env_step_db_fall_table[S_apu_env_step[m]];
+      val += S_apu_env_index_db_fall_table[S_apu_env_index[m]];
 
     if (val > APU_VOL_LIN_MAX_INDEX)
       val = APU_VOL_LIN_MAX_INDEX;
