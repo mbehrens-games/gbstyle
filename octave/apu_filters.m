@@ -27,11 +27,21 @@ printf("\n")
 
 % print out lowpass kernel
 printf("Lowpass Filter Table: \n");
-for m = 1:32
-  printf("%5d, ", lp_b(m))
-  if (mod(m, 8) == 0)
-    printf("\n")
-  end
-end
-printf("%5d, \n", lp_b(33))
+for m = 1:4
+  if (m == 1)
+    printf("  { ")
+  else
+    printf("    ")
+  endif
+  for n = 1:8
+    printf("%5d", lp_b(8 * (m - 1) + n))
+    if ((m < 48) || (n < 8))
+      printf(", ")
+    endif
+  endfor
+  printf("\n")
+endfor
+printf("    %5d\n", lp_b(33))
+printf("  };")
+printf("\n\n")
 
