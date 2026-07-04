@@ -10,11 +10,8 @@ dco_1hz_inc = exp(log(2) * 21) / 96000; % 21 bit phase, 96 khz clock
 
 dco_phase_incs = round(dco_c6 * dco_1hz_inc * exp(log(2) * (0:767)/768));
 
-% dco level curves
-val = (2 * (0:7) + 1)/15;
-dco_val_to_db_tri = round(-256 * (log(val) / log(2)));
-dco_val_to_db_sin = round(-256 * (log(sin((pi / 2) * val)) / log(2)));
-dco_val_to_db_exp = round(-256 * (log(1 - cos((pi / 2) * val)) / log(2)));
+% dco level curve
+dco_val_to_db = round(-256 * (log((2 * (0:7) + 1)/15) / log(2)));
 
 % print out tables
 printf("DCO Phase Shifts Table: \n")
@@ -48,7 +45,7 @@ for m = 1:96
   endif
   for n = 1:8
     printf("%5d", dco_phase_incs(8 * (m - 1) + n))
-    if ((m < 48) || (n < 8))
+    if ((m < 96) || (n < 8))
       printf(", ")
     endif
   endfor
@@ -57,32 +54,10 @@ endfor
 printf("  };")
 printf("\n\n")
 
-printf("DCO Value to DB Triangle Table: \n")
+printf("DCO Value to DB Table: \n")
 printf("  { ")
 for m = 1:8
-  printf("%d", dco_val_to_db_tri(m))
-  if (m < 8)
-    printf(", ")
-  endif
-endfor
-printf(" };")
-printf("\n\n")
-
-printf("DCO Value to DB Sine Table: \n")
-printf("  { ")
-for m = 1:8
-  printf("%d", dco_val_to_db_sin(m))
-  if (m < 8)
-    printf(", ")
-  endif
-endfor
-printf(" };")
-printf("\n\n")
-
-printf("DCO Value to DB Exponential Table: \n")
-printf("  { ")
-for m = 1:8
-  printf("%d", dco_val_to_db_exp(m))
+  printf("%d", dco_val_to_db(m))
   if (m < 8)
     printf(", ")
   endif
