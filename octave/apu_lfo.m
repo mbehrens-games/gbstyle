@@ -11,17 +11,15 @@ lfo_phase_incs = round(lfo_1hz_inc * lfo_freqs);
 lfo_delay_sec = (0.5 * (0:31)) / 32;
 lfo_delay_periods = round(375 * lfo_delay_sec); % 375 hz clock
 
-% vibrato (max sensitivity: 2 semitones)
-lfo_vib_shifts = 7 - (0:7);
-lfo_vib_val_to_cent = round(128 * ((0:15) / 15));
+% lfo sensitivities
+lfo_vib_shifts = [5, 4, 2, 1];
+lfo_trem_shifts = [2, 0];
 
-% tremolo (max sensitivity: -48 db)
-lfo_trem_shifts = 3 - (0:3);
-lfo_trem_val_to_db = round(4096 * ((0:15) / 15));
-
-% midi controller position mapping (m is the patch parameter PMD/AMD)
+% lfo step sizes
 for m = 1:8
-  lfo_midi_cont_pos_to_depth(m,:) = (m - 1) + round((9 - m) * ((0:7) / 7));
+  dep = round(((m - 1) * (256 / 15)) / 7);
+  rem = round((256 / 15) - dep);
+  lfo_step_sizes(m,:) = round(dep + (rem * (0:7)) / 7);
 endfor
 
 % print out tables
@@ -63,37 +61,8 @@ printf("\n\n")
 
 printf("Vibrato Shifts (PMS) Table: \n")
 printf("  { ")
-for m = 1:8
-  printf("%d", lfo_vib_shifts(m))
-  if (m < 8)
-    printf(", ")
-  endif
-endfor
-printf(" };")
-printf("\n\n")
-
-printf("Vibrato Val to Cent Table: \n")
-for m = 1:2
-  if (m == 1)
-    printf("  { ")
-  else
-    printf("    ")
-  endif
-  for n = 1:8
-    printf("%3d", lfo_vib_val_to_cent(8 * (m - 1) + n))
-    if ((m < 2) || (n < 8))
-      printf(", ")
-    endif
-  endfor
-  printf("\n")
-endfor
-printf("  };")
-printf("\n\n")
-
-printf("Tremolo Shifts (AMS) Table: \n")
-printf("  { ")
 for m = 1:4
-  printf("%d", lfo_trem_shifts(m))
+  printf("%d", lfo_vib_shifts(m))
   if (m < 4)
     printf(", ")
   endif
@@ -101,25 +70,18 @@ endfor
 printf(" };")
 printf("\n\n")
 
-printf("Tremolo Val to DB Table: \n")
+printf("Tremolo Shifts (AMS) Table: \n")
+printf("  { ")
 for m = 1:2
-  if (m == 1)
-    printf("  { ")
-  else
-    printf("    ")
+  printf("%d", lfo_trem_shifts(m))
+  if (m < 2)
+    printf(", ")
   endif
-  for n = 1:8
-    printf("%4d", lfo_trem_val_to_db(8 * (m - 1) + n))
-    if ((m < 2) || (n < 8))
-      printf(", ")
-    endif
-  endfor
-  printf("\n")
 endfor
-printf("  };")
+printf(" };")
 printf("\n\n")
 
-printf("LFO MIDI Controller Position to Depth Table: \n")
+printf("LFO Step Sizes Table: \n")
 for m = 1:8
   if (m == 1)
     printf("  { ")
@@ -127,7 +89,7 @@ for m = 1:8
     printf("    ")
   endif
   for n = 1:8
-    printf("%d", lfo_midi_cont_pos_to_depth(m,n))
+    printf("%2d", lfo_step_sizes(m,n))
     if ((m < 8) || (n < 8))
       printf(", ")
     endif
