@@ -245,15 +245,15 @@ static unsigned short S_apu_env_fall_val_to_db_table[64] =
      455,  390,  325,  260,  195,  130,   65,    0
   };
 
-/* patch param envelope rise/fall rate tables */
-static unsigned short S_apu_param_env_rise_speed_table[32] = 
+/* envelope rise/fall rate tables */
+static unsigned short S_apu_env_rise_rate_table[32] = 
   {  16,  19,  22,  24,  27,  30,  33,  35,
      38,  41,  44,  46,  49,  52,  55,  57,
      60,  63,  66,  68,  71,  74,  77,  79,
      82,  85,  88,  90,  93,  96,  99, 101
   };
 
-static unsigned short S_apu_param_env_fall_speed_table[32] = 
+static unsigned short S_apu_env_fall_rate_table[32] = 
   {  0,   3,   6,   8,  11,  14,  17,  19,
     22,  25,  28,  30,  33,  36,  39,  41,
     44,  47,  50,  52,  55,  58,  61,  63,
@@ -285,35 +285,24 @@ static unsigned short S_apu_lfo_delay_periods_table[32] =
     141, 146, 152, 158, 164, 170, 176, 182
   };
 
-/* vibrato */
-static unsigned char S_apu_lfo_vib_pms_table[8] = 
-  { 7, 6, 5, 4, 3, 2, 1, 0 };
+/* lfo sensitivities */
+static unsigned char S_apu_lfo_vib_shifts_table[4] = 
+  { 5, 4, 2, 1 };
 
-static unsigned short S_apu_lfo_vib_val_to_cent_table[16] = 
-  {   0,   9,  17,  26,  34,  43,  51,  60,
-     68,  77,  85,  94, 102, 111, 119, 128
+static unsigned char S_apu_lfo_trem_shifts_table[2] = 
+  { 2, 0 };
+
+/* lfo step sizes */
+static unsigned short S_apu_lfo_step_sizes_table[64] = 
+  {  0,  2,  5,  7, 10, 12, 15, 17,
+     2,  4,  6,  8, 11, 13, 15, 17,
+     5,  7,  8, 10, 12, 14, 15, 17,
+     7,  8, 10, 11, 13, 14, 16, 17,
+    10, 11, 12, 13, 14, 15, 16, 17,
+    12, 13, 13, 14, 15, 16, 16, 17,
+    15, 15, 16, 16, 16, 16, 17, 17,
+    17, 17, 17, 17, 17, 17, 17, 17
   };
-
-/* tremolo */
-static unsigned char S_apu_lfo_trem_ams_table[4] = 
-  { 3, 2, 1, 0 };
-
-static unsigned short S_apu_lfo_trem_val_to_db_table[16] = 
-  {    0,  273,  546,  819, 1092, 1365, 1638, 1911,
-    2185, 2458, 2731, 3004, 3277, 3550, 3823, 4096
-  };
-
-/* midi controller mapping */
-static unsigned short S_apu_lfo_midi_cont_pos_to_depth_table[64] = 
-  { 0, 1, 2, 3, 5, 6, 7, 8,
-    1, 2, 3, 4, 5, 6, 7, 8,
-    2, 3, 4, 5, 5, 6, 7, 8,
-    3, 4, 4, 5, 6, 7, 7, 8,
-    4, 5, 5, 6, 6, 7, 7, 8,
-    5, 5, 6, 6, 7, 7, 8, 8,
-    6, 6, 7, 7, 7, 7, 8, 8,
-    7, 7, 7, 7, 8, 8, 8, 8
-  }; 
 
 /*******/
 /* PCM */
@@ -391,20 +380,23 @@ enum
   APU_PARAM_BYTE_ENV_SL, 
   APU_PARAM_BYTE_LFO_SPEED, 
   APU_PARAM_BYTE_LFO_DELAY, 
-  APU_PARAM_BYTE_VIB_PMD_PMS, 
-  APU_PARAM_BYTE_TREM_AMD_AMS, 
+  APU_PARAM_BYTE_VIB_SENS_DEPTH, 
+  APU_PARAM_BYTE_TREM_SENS_DEPTH, 
   APU_NUM_PARAM_BYTES 
 };
 
 #define APU_NUM_PATCHES       16
 #define APU_PATCH_PARAMS_SIZE (APU_NUM_PATCHES * APU_NUM_PARAM_BYTES)
 
-static unsigned char  S_apu_patch_params[APU_PATCH_PARAMS_SIZE];
+static unsigned char S_apu_patch_params[APU_PATCH_PARAMS_SIZE];
+
+#define APU_PARAM_BYTE(patch_num, param)                                       \
+  S_apu_patch_params[patch_num * APU_NUM_PARAM_BYTES + APU_PARAM_BYTE_##param]
 
 #define APU_NUM_WAVE_BYTES    (32 / 2)
 #define APU_PATCH_WAVES_SIZE  (APU_NUM_PATCHES * APU_NUM_WAVE_BYTES)
 
-static unsigned char  S_apu_patch_waves[APU_PATCH_WAVES_SIZE];
+static unsigned char S_apu_patch_waves[APU_PATCH_WAVES_SIZE];
 
 /**********/
 /* VOICES */
@@ -416,9 +408,9 @@ enum
   APU_WAVE_REG_VIB_LEVEL, 
   APU_WAVE_REG_TREM_LEVEL, 
   APU_WAVE_REG_ENV_STAGE, 
-  APU_WAVE_REG_ENV_SPEED, 
   APU_WAVE_REG_ENV_PHASE, 
   APU_WAVE_REG_ENV_INDEX, 
+  APU_WAVE_REG_ENV_LEVEL, 
   APU_WAVE_REG_DCO_NOTE, 
   APU_WAVE_REG_DCO_PHASE, 
   APU_WAVE_REG_DCO_INDEX, 
@@ -431,8 +423,8 @@ enum
 
 static unsigned short S_apu_wave_voices[APU_WAVE_VOICES_SIZE];
 
-#define APU_WAVE_REG(voice_num, reg_name)                                      \
-  S_apu_wave_voices[voice_num * APU_NUM_WAVE_REGS + APU_WAVE_REG_##reg_name]
+#define APU_WAVE_REG(voice_num, reg)                                           \
+  S_apu_wave_voices[voice_num * APU_NUM_WAVE_REGS + APU_WAVE_REG_##reg]
 
 enum
 {
@@ -447,39 +439,8 @@ enum
 
 static unsigned short S_apu_pcm_voices[APU_PCM_VOICES_SIZE];
 
-#define APU_PCM_REG(voice_num, reg_name)                                       \
-  S_apu_pcm_voices[voice_num * APU_NUM_PCM_REGS + APU_PCM_REG_##reg_name]
-
-
-static unsigned char  S_apu_param_lfo_speed[APU_NUM_WAVE_VOICES];
-static unsigned char  S_apu_param_lfo_delay[APU_NUM_WAVE_VOICES];
-static unsigned char  S_apu_param_vib_pms[APU_NUM_WAVE_VOICES];
-static unsigned char  S_apu_param_vib_pmd[APU_NUM_WAVE_VOICES];
-static unsigned char  S_apu_param_trem_ams[APU_NUM_WAVE_VOICES];
-static unsigned char  S_apu_param_trem_amd[APU_NUM_WAVE_VOICES];
-
-static unsigned char  S_apu_param_env_ar[APU_NUM_WAVE_VOICES];
-static unsigned char  S_apu_param_env_dr[APU_NUM_WAVE_VOICES];
-static unsigned char  S_apu_param_env_sr[APU_NUM_WAVE_VOICES];
-static unsigned char  S_apu_param_env_rr[APU_NUM_WAVE_VOICES];
-static unsigned char  S_apu_param_env_sl[APU_NUM_WAVE_VOICES];
-
-static unsigned short S_apu_lfo_phase[APU_NUM_WAVE_VOICES];
-static unsigned short S_apu_lfo_index[APU_NUM_WAVE_VOICES];
-static unsigned short S_apu_lfo_vib_level[APU_NUM_WAVE_VOICES];
-static unsigned short S_apu_lfo_trem_level[APU_NUM_WAVE_VOICES];
-
-static unsigned char  S_apu_env_stage[APU_NUM_WAVE_VOICES];
-static unsigned short S_apu_env_speed[APU_NUM_WAVE_VOICES];
-static unsigned short S_apu_env_phase[APU_NUM_WAVE_VOICES];
-static unsigned short S_apu_env_index[APU_NUM_WAVE_VOICES];
-
-static unsigned char  S_apu_dco_note[APU_NUM_WAVE_VOICES];
-static unsigned short S_apu_dco_phase[APU_NUM_WAVE_VOICES];
-static unsigned short S_apu_dco_index[APU_NUM_WAVE_VOICES];
-
-static unsigned short S_apu_wave_level_db[APU_NUM_WAVE_VOICES];
-static unsigned char  S_apu_wave_level_sign[APU_NUM_WAVE_VOICES];
+#define APU_PCM_REG(voice_num, reg)                                            \
+  S_apu_pcm_voices[voice_num * APU_NUM_PCM_REGS + APU_PCM_REG_##reg]
 
 /* output levels */
 short G_apu_out_L;
@@ -495,12 +456,32 @@ int apu_reset()
 
   S_apu_timer = 0;
 
-  /* reset patch banks */
-  for (m = 0; m < APU_PATCH_PARAMS_SIZE; m++)
-    S_apu_patch_params[m] = 0;
+  /* reset patch params */
+  for (m = 0; m < APU_NUM_PATCHES; m++)
+  {
+    APU_PARAM_BYTE(m, ENV_AR) = 0;
+    APU_PARAM_BYTE(m, ENV_DR) = 0;
+    APU_PARAM_BYTE(m, ENV_SR) = 0;
+    APU_PARAM_BYTE(m, ENV_RR) = 0;
+    APU_PARAM_BYTE(m, ENV_SL) = 0;
 
-  for (m = 0; m < APU_PATCH_WAVES_SIZE; m++)
-    S_apu_patch_waves[m] = 0;
+    APU_PARAM_BYTE(m, LFO_SPEED) = 0;
+    APU_PARAM_BYTE(m, LFO_DELAY) = 0;
+    APU_PARAM_BYTE(m, VIB_SENS_DEPTH) = 0;
+    APU_PARAM_BYTE(m, TREM_SENS_DEPTH) = 0;
+  }
+
+  /* reset patch waves */
+  for (m = 0; m < APU_NUM_PATCHES; m++)
+  {
+    for (n = 0; n < APU_NUM_WAVE_BYTES; n++)
+    {
+      if (n < (APU_NUM_WAVE_BYTES / 2))
+        S_apu_patch_waves[m * APU_NUM_WAVE_BYTES + n] = 0xFF;
+      else
+        S_apu_patch_waves[m * APU_NUM_WAVE_BYTES + n] = 0x00;
+    }
+  }
 
   /* reset voice registers */
   for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
@@ -510,9 +491,9 @@ int apu_reset()
     APU_WAVE_REG(m, VIB_LEVEL)  = 0;
     APU_WAVE_REG(m, TREM_LEVEL) = 0;
     APU_WAVE_REG(m, ENV_STAGE)  = APU_ENV_STAGE_R;
-    APU_WAVE_REG(m, ENV_SPEED)  = 0;
     APU_WAVE_REG(m, ENV_PHASE)  = 0;
     APU_WAVE_REG(m, ENV_INDEX)  = 0;
+    APU_WAVE_REG(m, ENV_LEVEL)  = APU_VOL_LIN_MAX_INDEX;
     APU_WAVE_REG(m, DCO_NOTE)   = APU_NOTE_MIDDLE_C;
     APU_WAVE_REG(m, DCO_PHASE)  = 0;
     APU_WAVE_REG(m, DCO_INDEX)  = 0;
@@ -523,44 +504,7 @@ int apu_reset()
   {
     APU_PCM_REG(m, PHASE) = 0;
     APU_PCM_REG(m, INDEX) = 0;
-    APU_PCM_REG(m, LEVEL) = 0;
-  }
-
-  /* reset patch params */
-  for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
-  {
-    S_apu_param_lfo_speed[m] = 0;
-    S_apu_param_lfo_delay[m] = 0;
-    S_apu_param_vib_pms[m] = 0;
-    S_apu_param_vib_pmd[m] = 0;
-    S_apu_param_trem_ams[m] = 0;
-    S_apu_param_trem_amd[m] = 0;
-
-    S_apu_param_env_ar[m] = 0;
-    S_apu_param_env_dr[m] = 0;
-    S_apu_param_env_sr[m] = 0;
-    S_apu_param_env_rr[m] = 0;
-    S_apu_param_env_sl[m] = 0;
-  }
-
-  /* reset dco variables */
-  for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
-  {
-    S_apu_lfo_phase[m] = 0;
-    S_apu_lfo_index[m] = 0;
-    S_apu_lfo_vib_level[m] = 0;
-    S_apu_lfo_trem_level[m] = 0;
-
-    S_apu_env_stage[m] = APU_ENV_STAGE_R;
-    S_apu_env_speed[m] = 0;
-    S_apu_env_phase[m] = 0;
-    S_apu_env_index[m] = 0;
-
-    S_apu_dco_note[m] = APU_NOTE_MIDDLE_C;
-    S_apu_dco_phase[m] = 0;
-    S_apu_dco_index[m] = 0;
-    S_apu_wave_level_db[m] = APU_VOL_LIN_MAX_INDEX;
-    S_apu_wave_level_sign[m] = 0;
+    APU_PCM_REG(m, LEVEL) = APU_VOL_LIN_MAX_INDEX;
   }
 
   /* reset filters */
@@ -585,39 +529,20 @@ int apu_reset()
   G_apu_out_L = 0;
   G_apu_out_R = 0;
 
-  /* testing: set all waves to square waves for now */
-  for (m = 0; m < APU_NUM_PATCHES; m++)
-  {
-    for (n = 0; n < (APU_NUM_WAVE_BYTES / 2); n++)
-      S_apu_patch_waves[m * APU_NUM_WAVE_BYTES + n] = 0xFF;
-
-    for (n = (APU_NUM_WAVE_BYTES / 2); n < APU_NUM_WAVE_BYTES; n++)
-      S_apu_patch_waves[m * APU_NUM_WAVE_BYTES + n] = 0x00;
-  }
-
   /* testing: setup the 1st oscillator */
-  S_apu_param_lfo_speed[0] = 24;
-  S_apu_param_lfo_delay[0] = 0;
-  S_apu_param_vib_pms[0] = 5;
-  S_apu_param_vib_pmd[0] = 7;
-  S_apu_param_trem_ams[0] = 0;
-  S_apu_param_trem_amd[0] = 0;
+  APU_PARAM_BYTE(0, ENV_AR) = 24;
+  APU_PARAM_BYTE(0, ENV_DR) = 16;
+  APU_PARAM_BYTE(0, ENV_SR) = 8;
+  APU_PARAM_BYTE(0, ENV_RR) = 16;
+  APU_PARAM_BYTE(0, ENV_SL) = 8;
 
-  S_apu_param_env_ar[0] = 24;
-  S_apu_param_env_dr[0] = 16;
-  S_apu_param_env_sr[0] = 8;
-  S_apu_param_env_rr[0] = 16;
-  S_apu_param_env_sl[0] = 8;
+  APU_PARAM_BYTE(0, LFO_SPEED) = 24;
+  APU_PARAM_BYTE(0, LFO_DELAY) = 0;
+  APU_PARAM_BYTE(0, VIB_SENS_DEPTH) =  (1 << 3) | 7;
+  APU_PARAM_BYTE(0, TREM_SENS_DEPTH) = (0 << 3) | 0;
 
-  S_apu_lfo_phase[0] = 0;
-  S_apu_lfo_index[0] = 0;
-  S_apu_lfo_vib_level[0] = 0;
-  S_apu_lfo_trem_level[0] = 0;
-
-  S_apu_env_stage[0] = APU_ENV_STAGE_A;
-  S_apu_env_speed[0] = S_apu_param_env_rise_speed_table[S_apu_param_env_ar[0]];
-  S_apu_env_phase[0] = 0;
-  S_apu_env_index[0] = 0;
+  APU_WAVE_REG(0, ENV_STAGE) = APU_ENV_STAGE_A;
+  APU_WAVE_REG(0, ENV_PHASE) = 0;
 
   return 0;
 }
@@ -641,50 +566,55 @@ int apu_advance_lfos()
   unsigned short vib_level;
   unsigned short trem_level;
 
+  unsigned char wave_step;
+  unsigned char vib_depth;
+  unsigned char vib_sens;
+  unsigned char trem_depth;
+  unsigned char trem_sens;
+
   for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
   {
     /* lookup phase increment */
-    increment = S_apu_lfo_phase_incs_table[S_apu_param_lfo_speed[m]];
+    increment = S_apu_lfo_phase_incs_table[APU_PARAM_BYTE(m, LFO_SPEED)];
 
     /* update phase, check for wraparound */
-    S_apu_lfo_phase[m] = (S_apu_lfo_phase[m] + increment) & 0xFFFF; 
+    APU_WAVE_REG(m, LFO_PHASE) += increment;
+    APU_WAVE_REG(m, LFO_PHASE) &= 0xFFFF;
 
-    if (S_apu_lfo_phase[m] < increment)
+    if (APU_WAVE_REG(m, LFO_PHASE) < increment)
     {
-      S_apu_lfo_index[m] += 1;
-      S_apu_lfo_index[m] &= 0x1F;
+      APU_WAVE_REG(m, LFO_INDEX) += 1;
+      APU_WAVE_REG(m, LFO_INDEX) &= 0x1F;
     }
 
     /* wavetable lookup */
     /* testing: just a triangle for now! */
-    if (S_apu_lfo_index[m] < 16)
-    {
-      vib_level = S_apu_lfo_vib_val_to_cent_table[S_apu_lfo_index[m]];
-      trem_level = S_apu_lfo_trem_val_to_db_table[S_apu_lfo_index[m]];
-    }
+    if (APU_WAVE_REG(m, LFO_INDEX) < 16)
+      wave_step = APU_WAVE_REG(m, LFO_INDEX);
     else
-    {
-      vib_level = S_apu_lfo_vib_val_to_cent_table[31 - S_apu_lfo_index[m]];
-      trem_level = S_apu_lfo_trem_val_to_db_table[31 - S_apu_lfo_index[m]];
-    }
+      wave_step = 31 - APU_WAVE_REG(m, LFO_INDEX);
 
-    /* apply depth */
-    vib_level = 
-      (vib_level * S_apu_lfo_midi_cont_pos_to_depth_table[8 * S_apu_param_vib_pmd[m] + 0]) / 8;
+    /* obtain depth and sensitivity params */
+    vib_depth = APU_PARAM_BYTE(m, VIB_SENS_DEPTH) & 0x07;
+    vib_sens = (APU_PARAM_BYTE(m, VIB_SENS_DEPTH) >> 3) & 0x03;
 
-    trem_level = 
-      (trem_level * S_apu_lfo_midi_cont_pos_to_depth_table[8 * S_apu_param_trem_amd[m] + 0]) / 8;
+    trem_depth = APU_PARAM_BYTE(m, TREM_SENS_DEPTH) & 0x07;
+    trem_sens = (APU_PARAM_BYTE(m, TREM_SENS_DEPTH) >> 3) & 0x01;
+
+    /* determine initial levels */
+    vib_level = wave_step * S_apu_lfo_step_sizes_table[8 * vib_depth + 0];
+    trem_level = wave_step * S_apu_lfo_step_sizes_table[8 * trem_depth + 0];
 
     /* apply sensitivity */
-    if (S_apu_lfo_vib_pms_table[S_apu_param_vib_pms[m]] > 0)
-      vib_level = vib_level >> S_apu_lfo_vib_pms_table[S_apu_param_vib_pms[m]];
+    if (S_apu_lfo_vib_shifts_table[vib_sens] > 0)
+      vib_level = vib_level >> S_apu_lfo_vib_shifts_table[vib_sens];
 
-    if (S_apu_lfo_trem_ams_table[S_apu_param_trem_ams[m]] > 0)
-      trem_level = trem_level >> S_apu_lfo_trem_ams_table[S_apu_param_trem_ams[m]];
+    if (S_apu_lfo_trem_shifts_table[trem_sens] > 0)
+      trem_level = trem_level >> S_apu_lfo_trem_shifts_table[trem_sens];
 
     /* set levels */
-    S_apu_lfo_vib_level[m] = vib_level;
-    S_apu_lfo_trem_level[m] = trem_level;
+    APU_WAVE_REG(m, VIB_LEVEL) = vib_level;
+    APU_WAVE_REG(m, TREM_LEVEL) = trem_level;
   }
 
   return 0;
@@ -701,11 +631,23 @@ int apu_advance_envelopes()
   unsigned short entry;
   unsigned short increment;
 
+  unsigned short rate;
+
   for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
   {
+    /* determine envelope rate */
+    if (APU_WAVE_REG(m, ENV_STAGE) == APU_ENV_STAGE_A)
+      rate = S_apu_env_rise_rate_table[APU_PARAM_BYTE(m, ENV_AR)];
+    else if (APU_WAVE_REG(m, ENV_STAGE) == APU_ENV_STAGE_D)
+      rate = S_apu_env_fall_rate_table[APU_PARAM_BYTE(m, ENV_DR)];
+    else if (APU_WAVE_REG(m, ENV_STAGE) == APU_ENV_STAGE_S)
+      rate = S_apu_env_fall_rate_table[APU_PARAM_BYTE(m, ENV_SR)];
+    else
+      rate = S_apu_env_fall_rate_table[APU_PARAM_BYTE(m, ENV_RR)];
+
     /* lookup phase increment */
-    block = S_apu_env_speed[m] / APU_ENV_PHASE_TABLE_SIZE;
-    entry = S_apu_env_speed[m] % APU_ENV_PHASE_TABLE_SIZE;
+    block = rate / APU_ENV_PHASE_TABLE_SIZE;
+    entry = rate % APU_ENV_PHASE_TABLE_SIZE;
 
     increment = S_apu_env_phase_incs_table[entry];
 
@@ -713,49 +655,52 @@ int apu_advance_envelopes()
       increment = increment >> S_apu_env_phase_shifts_table[block];
 
     /* update phase, check for wraparound */
-    S_apu_env_phase[m] = (S_apu_env_phase[m] + increment) & 0xFFFF; 
+    APU_WAVE_REG(m, ENV_PHASE) += increment;
+    APU_WAVE_REG(m, ENV_PHASE) &= 0xFFFF; 
 
-    if (S_apu_env_phase[m] < increment)
+    if (APU_WAVE_REG(m, ENV_PHASE) < increment)
     {
       /* attack */
-      if (S_apu_env_stage[m] == APU_ENV_STAGE_A)
+      if (APU_WAVE_REG(m, ENV_STAGE) == APU_ENV_STAGE_A)
       {
-        if (S_apu_env_index[m] <= (63 - S_apu_env_phase_steps_table[block]))
-          S_apu_env_index[m] += S_apu_env_phase_steps_table[block];
+        if (APU_WAVE_REG(m, ENV_INDEX) <= (63 - S_apu_env_phase_steps_table[block]))
+          APU_WAVE_REG(m, ENV_INDEX) += S_apu_env_phase_steps_table[block];
         else
-          S_apu_env_index[m] = 63;
+          APU_WAVE_REG(m, ENV_INDEX) = 63;
 
-        if (S_apu_env_index[m] == 63)
-        {
-          S_apu_env_stage[m] = APU_ENV_STAGE_D;
-
-          S_apu_env_speed[m] = 
-            S_apu_param_env_fall_speed_table[S_apu_param_env_dr[m]];
-        }
+        if (APU_WAVE_REG(m, ENV_INDEX) == 63)
+          APU_WAVE_REG(m, ENV_STAGE) = APU_ENV_STAGE_D;
       }
       /* decay */
-      else if (S_apu_env_stage[m] == APU_ENV_STAGE_D)
+      else if (APU_WAVE_REG(m, ENV_STAGE) == APU_ENV_STAGE_D)
       {
-        if (S_apu_env_index[m] >= 0 + S_apu_env_phase_steps_table[block])
-          S_apu_env_index[m] -= S_apu_env_phase_steps_table[block];
+        if (APU_WAVE_REG(m, ENV_INDEX) >= S_apu_env_phase_steps_table[block])
+          APU_WAVE_REG(m, ENV_INDEX) -= S_apu_env_phase_steps_table[block];
         else
-          S_apu_env_index[m] = 0;
+          APU_WAVE_REG(m, ENV_INDEX) = 0;
 
-        if (S_apu_env_index[m] <= (48 + S_apu_param_env_sl[m]))
-        {
-          S_apu_env_stage[m] = APU_ENV_STAGE_S;
-
-          S_apu_env_speed[m] = 
-            S_apu_param_env_fall_speed_table[S_apu_param_env_sr[m]];
-        }
+        if (APU_WAVE_REG(m, ENV_INDEX) <= (48 + APU_PARAM_BYTE(m, ENV_SL)))
+          APU_WAVE_REG(m, ENV_STAGE) = APU_ENV_STAGE_S;
       }
       /* sustain & release */
       else
       {
-        if (S_apu_env_index[m] >= 0 + S_apu_env_phase_steps_table[block])
-          S_apu_env_index[m] -= S_apu_env_phase_steps_table[block];
+        if (APU_WAVE_REG(m, ENV_INDEX) >= S_apu_env_phase_steps_table[block])
+          APU_WAVE_REG(m, ENV_INDEX) -= S_apu_env_phase_steps_table[block];
         else
-          S_apu_env_index[m] = 0;
+          APU_WAVE_REG(m, ENV_INDEX) = 0;
+      }
+
+      /* update envelope level */
+      if (APU_WAVE_REG(m, ENV_STAGE) == APU_ENV_STAGE_A)
+      {
+        APU_WAVE_REG(m, ENV_LEVEL) = 
+          S_apu_env_rise_val_to_db_table[APU_WAVE_REG(m, ENV_INDEX)];
+      }
+      else
+      {
+        APU_WAVE_REG(m, ENV_LEVEL) = 
+          S_apu_env_fall_val_to_db_table[APU_WAVE_REG(m, ENV_INDEX)];
       }
     }
   }
@@ -783,8 +728,8 @@ int apu_advance_dcos()
   for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
   {
     /* lookup phase increment, apply vibrato */
-    phase_index = S_apu_dco_note[m] * 64;
-    phase_index += S_apu_lfo_vib_level[m];
+    phase_index = APU_WAVE_REG(m, DCO_NOTE) * 64;
+    phase_index += APU_WAVE_REG(m, VIB_LEVEL);
 
     if (phase_index > APU_DCO_PHASE_MAX_INDEX)
       phase_index = APU_DCO_PHASE_MAX_INDEX;
@@ -824,12 +769,8 @@ int apu_advance_dcos()
     else
       final_level_db = S_apu_dco_val_to_db_table[7 - code];
 
-    if (S_apu_env_stage[m] == APU_ENV_STAGE_A)
-      final_level_db += S_apu_env_rise_val_to_db_table[S_apu_env_index[m]];
-    else
-      final_level_db += S_apu_env_fall_val_to_db_table[S_apu_env_index[m]];
-
-    final_level_db += S_apu_lfo_trem_level[m];
+    final_level_db += APU_WAVE_REG(m, ENV_LEVEL);
+    final_level_db += APU_WAVE_REG(m, TREM_LEVEL);
 
     if (final_level_db > APU_VOL_LIN_MAX_INDEX)
       final_level_db = APU_VOL_LIN_MAX_INDEX;
@@ -837,12 +778,10 @@ int apu_advance_dcos()
       final_level_db = 0;
 
     /* set final level and sign */
-    S_apu_wave_level_db[m] = final_level_db;
+    APU_WAVE_REG(m, WAVE_LEVEL) = final_level_db & 0x0FFF;
 
-    if (code >= 8)
-      S_apu_wave_level_sign[m] = 0;
-    else
-      S_apu_wave_level_sign[m] = 1;
+    if (code < 8)
+      APU_WAVE_REG(m, WAVE_LEVEL) |= 0x1000;
   }
 
   return 0;
@@ -869,23 +808,23 @@ int apu_advance_sample()
 
   for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
   {
-    block = S_apu_wave_level_db[m] / APU_VOL_LIN_TABLE_SIZE;
-    entry = S_apu_wave_level_db[m] % APU_VOL_LIN_TABLE_SIZE;
+    block = (APU_WAVE_REG(m, WAVE_LEVEL) & 0x0FFF) / APU_VOL_LIN_TABLE_SIZE;
+    entry = (APU_WAVE_REG(m, WAVE_LEVEL) & 0x0FFF) % APU_VOL_LIN_TABLE_SIZE;
 
     voice_level = S_apu_vol_lin_table[entry];
 
     if (block > 0)
       voice_level = voice_level >> block;
 
-    if (S_apu_wave_level_sign[m] == 0)
-      samp_L += voice_level;
-    else
+    if (APU_WAVE_REG(m, WAVE_LEVEL) & 0x1000)
       samp_L -= voice_level;
-
-    if (S_apu_wave_level_sign[m] == 0)
-      samp_R += voice_level;
     else
+      samp_L += voice_level;
+
+    if (APU_WAVE_REG(m, WAVE_LEVEL) & 0x1000)
       samp_R -= voice_level;
+    else
+      samp_R += voice_level;
   }
 
   if (samp_L > 32767)
