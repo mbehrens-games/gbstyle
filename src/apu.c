@@ -23,6 +23,7 @@
 #define APU_SEQ_CLOCK_DIVIDER    24  /* sequencer clock is 4000  */
 #define APU_LFO_CLOCK_DIVIDER   256  /* lfo clock is 375         */
 #define APU_ENV_CLOCK_DIVIDER    64  /* envelope clock is 1500   */
+#define APU_PCM_CLOCK_DIVIDER     3  /* pcm clock is 32000       */
 
 #define APU_TIMER_CLOCK_DIVIDER 768  /* lcm of the other dividers */
 
@@ -530,7 +531,7 @@ int apu_reset()
   G_apu_out_R = 0;
 
   /* testing: setup the 1st oscillator */
-  APU_PARAM_BYTE(0, ENV_AR) = 24;
+  APU_PARAM_BYTE(0, ENV_AR) = 31;
   APU_PARAM_BYTE(0, ENV_DR) = 16;
   APU_PARAM_BYTE(0, ENV_SR) = 8;
   APU_PARAM_BYTE(0, ENV_RR) = 16;
@@ -541,8 +542,29 @@ int apu_reset()
   APU_PARAM_BYTE(0, VIB_SENS_DEPTH) =  (1 << 3) | 7;
   APU_PARAM_BYTE(0, TREM_SENS_DEPTH) = (0 << 3) | 0;
 
-  APU_WAVE_REG(0, ENV_STAGE) = APU_ENV_STAGE_A;
-  APU_WAVE_REG(0, ENV_PHASE) = 0;
+  return 0;
+}
+
+/******************************************************************************/
+/* apu_play_note()                                                            */
+/******************************************************************************/
+int apu_play_note(unsigned short inst_num, unsigned short note)
+{
+  if (inst_num >= APU_NUM_WAVE_VOICES)
+    return 0;
+
+  if ((note < APU_NOTE_LOWEST) || (note > APU_NOTE_HIGHEST))
+    return 0;
+
+  APU_WAVE_REG(inst_num, LFO_PHASE) = 0;
+  APU_WAVE_REG(inst_num, LFO_INDEX) = 0;
+
+  APU_WAVE_REG(inst_num, ENV_STAGE) = APU_ENV_STAGE_A;
+  APU_WAVE_REG(inst_num, ENV_PHASE) = 0;
+
+  APU_WAVE_REG(inst_num, DCO_NOTE)  = note;
+  APU_WAVE_REG(inst_num, DCO_PHASE) = 0;
+  APU_WAVE_REG(inst_num, DCO_INDEX) = 0;
 
   return 0;
 }

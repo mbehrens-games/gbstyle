@@ -16,4 +16,6 @@ extern short G_apu_out_R;
 int apu_reset();
 int apu_update();
 
+int apu_play_note(unsigned short inst_num, unsigned short note);
+
 #endif

@@ -11,7 +11,8 @@
 
 #include "apu.h"
 #include "audio.h"
-#include "fileio.h"
+#include "midi.h"
+#include "wav.h"
 
 /******************************************************************************/
 /* main()                                                                     */
@@ -23,9 +24,14 @@ int main(int argc, char *argv[])
   audio_init();
   apu_reset();
 
+  /* load midi file */
+  midi_import_file("touhou_6_apparitions.mid");
+
   /* just try writing out some stuff */
-  export_wav_open_file("test_01.wav");
-  export_wav_write_header();
+  wav_export_open_file("test_01.wav");
+  wav_export_write_header();
+
+  apu_play_note(0, 4 * 12 + 0);
 
   for (k = 0; k < 60; k++)
   {
@@ -34,10 +40,10 @@ int main(int argc, char *argv[])
     else
       audio_update_frame(17);
 
-    export_wav_write_block(&G_audio_frame_buffer[0], G_audio_frame_num_samples);
+    wav_export_write_block(&G_audio_frame_buffer[0], G_audio_frame_num_samples);
   }
 
-  export_wav_close_file();
+  wav_export_close_file();
 
   return 0;
 }
