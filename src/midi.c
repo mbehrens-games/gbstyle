@@ -7,11 +7,19 @@
 
 #include "midi.h"
 
+#define MIDI_TRACK_SIZE (64 * 1024)
+
 static FILE* S_midi_import_fp;
 
 static unsigned short S_midi_format;
 static unsigned short S_midi_num_tracks;
 static unsigned short S_midi_ppqn;
+
+static unsigned char  S_midi_combined_data[MIDI_TRACK_SIZE];
+static unsigned int   S_midi_combined_num_bytes;
+
+static unsigned char  S_midi_track_data[MIDI_TRACK_SIZE];
+static unsigned int   S_midi_track_num_bytes;
 
 /******************************************************************************/
 /* midi_parse_header()                                                        */
@@ -90,7 +98,6 @@ int midi_parse_track()
 
   unsigned int  delta_time;
   unsigned char status_byte;
-  unsigned char data_read;
 
   unsigned char meta_code;
   unsigned int  event_size;
@@ -113,9 +120,10 @@ int midi_parse_track()
 
   printf("Chunk Size: %d\n", chunk_size);
 
-  /* read track events */
+  /* reset running status */
   status_byte = 0x00;
 
+  /* read track events */
   while (1)
   {
     /* read delta time */
@@ -133,46 +141,140 @@ int midi_parse_track()
         break;
     }
 
+    /* output "delay" sequencer commands if necessary */
+    while (delta_time > 0)
+    {
+      if (delta_time <= 255)
+      {
+        S_midi_track_data[S_midi_track_num_bytes + 0] = 0x10;
+        S_midi_track_data[S_midi_track_num_bytes + 1] = delta_time & 0xFF;
+        S_midi_track_num_bytes += 2;
+        delta_time = 0;
+      }
+      else if (delta_time <= 65535)
+      {
+        S_midi_track_data[S_midi_track_num_bytes + 0] = 0x20;
+        S_midi_track_data[S_midi_track_num_bytes + 1] = delta_time & 0xFF;
+        S_midi_track_data[S_midi_track_num_bytes + 2] = (delta_time >> 8) & 0xFF;
+        S_midi_track_num_bytes += 3;
+        delta_time = 0;
+      }
+      else
+      {
+        S_midi_track_data[S_midi_track_num_bytes + 0] = 0x20;
+        S_midi_track_data[S_midi_track_num_bytes + 1] = 0xFF;
+        S_midi_track_data[S_midi_track_num_bytes + 2] = 0xFF;
+        S_midi_track_num_bytes += 3;
+        delta_time -= 65535;
+      }
+    }
+
     /* read status byte or 1st data byte */
     if (fread(buf, sizeof(unsigned char), 1, S_midi_import_fp) < 1)
       return 1;
 
     /* check for running status */
+    /* if a data byte is encountered here, assume that the (implicit) */
+    /* status byte is the same as it was for the previous midi event  */
     if (buf[0] & 0x80)
     {
       status_byte = buf[0];
-      data_read = 0;
-    }
-    else
-      data_read = 1;
 
-    /* midi channel event, 2 data bytes */
-    if (((status_byte & 0xF0) == 0x80) || 
-        ((status_byte & 0xF0) == 0x90) || 
-        ((status_byte & 0xF0) == 0xA0) || 
-        ((status_byte & 0xF0) == 0xB0) || 
-        ((status_byte & 0xF0) == 0xE0))
-    {
-      if (data_read == 0)
+      /* read data byte(s) */
+      if (((status_byte & 0xF0) == 0x80) || 
+          ((status_byte & 0xF0) == 0x90) || 
+          ((status_byte & 0xF0) == 0xA0) || 
+          ((status_byte & 0xF0) == 0xB0) || 
+          ((status_byte & 0xF0) == 0xE0))
       {
         if (fread(&buf[0], sizeof(unsigned char), 2, S_midi_import_fp) < 2)
           return 1;
       }
-      else if (data_read == 1)
+      else if ( ((status_byte & 0xF0) == 0xC0) || 
+                ((status_byte & 0xF0) == 0xD0))
+      {
+        if (fread(&buf[0], sizeof(unsigned char), 1, S_midi_import_fp) < 1)
+          return 1;
+
+        buf[1] = 0x00;
+      }
+    }
+    else
+    {
+      /* read remaining data byte(s) */
+      if (((status_byte & 0xF0) == 0x80) || 
+          ((status_byte & 0xF0) == 0x90) || 
+          ((status_byte & 0xF0) == 0xA0) || 
+          ((status_byte & 0xF0) == 0xB0) || 
+          ((status_byte & 0xF0) == 0xE0))
       {
         if (fread(&buf[1], sizeof(unsigned char), 1, S_midi_import_fp) < 1)
           return 1;
       }
-    }
-    /* midi channel event, 1 data byte */
-    else if ( ((status_byte & 0xF0) == 0xC0) || 
-              ((status_byte & 0xF0) == 0xD0))
-    {
-      if (data_read == 0)
+      else if ( ((status_byte & 0xF0) == 0xC0) || 
+                ((status_byte & 0xF0) == 0xD0))
       {
-        if (fread(&buf[0], sizeof(unsigned char), 1, S_midi_import_fp) < 1)
-          return 1;
+        buf[1] = 0x00;
       }
+    }
+
+    /* note off */
+    if ((status_byte & 0xF0) == 0x80)
+    {
+      S_midi_track_data[S_midi_track_num_bytes + 0] = 0x50;
+      S_midi_track_data[S_midi_track_num_bytes + 1] = buf[0];
+      S_midi_track_num_bytes += 2;
+    }
+    /* note on */
+    else if ((status_byte & 0xF0) == 0x90)
+    {
+      S_midi_track_data[S_midi_track_num_bytes + 0] = 0x40;
+      S_midi_track_data[S_midi_track_num_bytes + 1] = buf[0];
+      S_midi_track_data[S_midi_track_num_bytes + 2] = buf[1];
+      S_midi_track_num_bytes += 3;
+    }
+    /* aftertouch */
+    else if ((status_byte & 0xF0) == 0xA0)
+    {
+      S_midi_track_data[S_midi_track_num_bytes + 0] = 0x70;
+      S_midi_track_data[S_midi_track_num_bytes + 1] = buf[1];
+      S_midi_track_num_bytes += 2;
+    }
+    /* controller */
+    else if ((status_byte & 0xF0) == 0xB0)
+    {
+      printf("Controller %d Change: %d\n", buf[0], buf[1]);
+
+      if (buf[0] == 1)
+        S_midi_track_data[S_midi_track_num_bytes + 0] = 0x90;
+      else if (buf[0] == 4)
+        S_midi_track_data[S_midi_track_num_bytes + 0] = 0xA0;
+      else
+        S_midi_track_data[S_midi_track_num_bytes + 0] = 0x90;
+
+      S_midi_track_data[S_midi_track_num_bytes + 1] = buf[1];
+      S_midi_track_num_bytes += 2;
+    }
+    /* program change */
+    else if ((status_byte & 0xF0) == 0xC0)
+    {
+      S_midi_track_data[S_midi_track_num_bytes + 0] = 0xD0;
+      S_midi_track_data[S_midi_track_num_bytes + 1] = buf[0];
+      S_midi_track_num_bytes += 2;
+    }
+    /* channel pressure */
+    else if ((status_byte & 0xF0) == 0xD0)
+    {
+      S_midi_track_data[S_midi_track_num_bytes + 0] = 0x70;
+      S_midi_track_data[S_midi_track_num_bytes + 1] = buf[0];
+      S_midi_track_num_bytes += 2;
+    }
+    /* pitch bend */
+    else if ((status_byte & 0xF0) == 0xE0)
+    {
+      S_midi_track_data[S_midi_track_num_bytes + 0] = 0x60;
+      S_midi_track_data[S_midi_track_num_bytes + 1] = buf[1];
+      S_midi_track_num_bytes += 2;
     }
     /* meta event */
     else if (status_byte == 0xFF)
@@ -214,6 +316,9 @@ int midi_parse_track()
             return 1;
         }
       }
+
+      /* reset running status */
+      status_byte = 0x00;
     }
     /* sysex event */
     else if ((status_byte == 0xF0) || (status_byte == 0xF7))
@@ -239,6 +344,9 @@ int midi_parse_track()
         if (fread(buf, sizeof(unsigned char), 1, S_midi_import_fp) < 1)
           return 1;
       }
+
+      /* reset running status */
+      status_byte = 0x00;
     }
     else
     {
@@ -255,7 +363,7 @@ int midi_parse_track()
 /******************************************************************************/
 int midi_import_file(char* filename)
 {
-  int k;
+  unsigned int k;
 
   /* make sure filename is valid */
   if (filename == NULL)
@@ -267,14 +375,33 @@ int midi_import_file(char* filename)
   if (S_midi_import_fp == NULL)
     return 1;
 
+  /* initialize combined data (all tracks) */
+  for (k = 0; k < MIDI_TRACK_SIZE; k++)
+    S_midi_combined_data[k] = 0x00;
+
+  S_midi_combined_num_bytes = 0;
+
   /* start parsing the file */
   if (midi_parse_header())
     goto nope;
 
   for (k = 0; k < S_midi_num_tracks; k++)
   {
+    /* initialize track data */
+    for (k = 0; k < MIDI_TRACK_SIZE; k++)
+      S_midi_track_data[k] = 0x00;
+
+    S_midi_track_num_bytes = 0;
+
+    /* parse track */
     if (midi_parse_track())
       goto nope;
+
+    /* consolidate tracks */
+    /* ... */
+
+    /* testing */
+    printf("Track Size: %d\n", S_midi_track_num_bytes);
   }
 
   /* close file */
