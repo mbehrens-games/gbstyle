@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
   wav_export_open_file("test_01.wav");
   wav_export_write_header();
 
-  apu_play_note(0, 4 * 12 + 0);
+  apu_play_note(0, 60);
 
   for (k = 0; k < 60; k++)
   {

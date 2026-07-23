@@ -23,19 +23,11 @@
 #define APU_SEQ_CLOCK_DIVIDER    16  /* sequencer clock is 6000  */
 #define APU_LFO_CLOCK_DIVIDER   256  /* lfo clock is 375         */
 #define APU_ENV_CLOCK_DIVIDER    64  /* envelope clock is 1500   */
-#define APU_PCM_CLOCK_DIVIDER     3  /* pcm clock is 32000       */
+#define APU_PCM_CLOCK_DIVIDER     4  /* pcm clock is 24000       */
 
-#define APU_TIMER_CLOCK_DIVIDER 768  /* lcm of the other dividers */
+#define APU_TIMER_CLOCK_DIVIDER 256  /* lcm of the other dividers */
 
 static unsigned short S_apu_timer;
-
-/**********/
-/* TUNING */
-/**********/
-
-#define APU_NOTE_LOWEST   ( 0 * 12 +  9) /* A-0 */
-#define APU_NOTE_HIGHEST  ( 8 * 12 +  0) /* C-8 */
-#define APU_NOTE_MIDDLE_C ( 4 * 12 +  0) /* C-4 */
 
 /********************/
 /* VOLUME & PANNING */
@@ -82,11 +74,113 @@ static unsigned short S_apu_vol_lin_table[APU_VOL_LIN_TABLE_SIZE] =
     16743, 16697, 16652, 16607, 16562, 16518, 16473, 16428
   };
 
+static unsigned short S_apu_inst_vol_table[128] = 
+  { 4095, 1512, 1500, 1488, 1476, 1464, 1452, 1440,
+    1428, 1416, 1404, 1392, 1380, 1368, 1356, 1344,
+    1332, 1320, 1308, 1296, 1284, 1272, 1260, 1248,
+    1236, 1224, 1212, 1200, 1188, 1176, 1164, 1152,
+    1140, 1128, 1116, 1104, 1092, 1080, 1068, 1056,
+    1044, 1032, 1020, 1008,  996,  984,  972,  960,
+     948,  936,  924,  912,  900,  888,  876,  864,
+     852,  840,  828,  816,  804,  792,  780,  768,
+     756,  744,  732,  720,  708,  696,  684,  672,
+     660,  648,  636,  624,  612,  600,  588,  576,
+     564,  552,  540,  528,  516,  504,  492,  480,
+     468,  456,  444,  432,  420,  408,  396,  384,
+     372,  360,  348,  336,  324,  312,  300,  288,
+     276,  264,  252,  240,  228,  216,  204,  192,
+     180,  168,  156,  144,  132,  120,  108,   96,
+      84,   72,   60,   48,   36,   24,   12,    0
+  };
+
+static unsigned short S_apu_inst_pan_table[128] = 
+  { 4095, 1625, 1369, 1220, 1113, 1031,  964,  907,
+     858,  814,  776,  741,  709,  679,  652,  627,
+     604,  582,  561,  541,  523,  505,  488,  472,
+     457,  442,  428,  415,  402,  389,  377,  366,
+     355,  344,  334,  324,  314,  304,  295,  286,
+     278,  269,  261,  253,  246,  238,  231,  224,
+     217,  210,  204,  198,  191,  185,  179,  174,
+     168,  163,  157,  152,  147,  142,  137,  133,
+     128,  124,  119,  115,  111,  107,  103,   99,
+      95,   91,   88,   84,   81,   78,   74,   71,
+      68,   65,   62,   59,   57,   54,   51,   49,
+      46,   44,   42,   39,   37,   35,   33,   31,
+      29,   27,   26,   24,   22,   21,   19,   18,
+      16,   15,   14,   12,   11,   10,    9,    8,
+       7,    6,    5,    5,    4,    3,    3,    2,
+       2,    1,    1,    1,    0,    0,    0,    0
+  };
+
 /*************/
 /* SEQUENCER */
 /*************/
 
+/* phase tables */
+static unsigned short S_apu_seq_phase_incs_table[224] = 
+  {  5592,  5767,  5942,  6117,  6291,  6466,  6641,  6816,
+     6991,  7165,  7340,  7515,  7690,  7864,  8039,  8214,
+     8389,  8563,  8738,  8913,  9088,  9262,  9437,  9612,
+     9787,  9961, 10136, 10311, 10486, 10661, 10835, 11010,
+    11185, 11360, 11534, 11709, 11884, 12059, 12233, 12408,
+    12583, 12758, 12932, 13107, 13282, 13457, 13631, 13806,
+    13981, 14156, 14331, 14505, 14680, 14855, 15030, 15204,
+    15379, 15554, 15729, 15903, 16078, 16253, 16428, 16602,
+    16777, 16952, 17127, 17302, 17476, 17651, 17826, 18001,
+    18175, 18350, 18525, 18700, 18874, 19049, 19224, 19399,
+    19573, 19748, 19923, 20098, 20272, 20447, 20622, 20797,
+    20972, 21146, 21321, 21496, 21671, 21845, 22020, 22195,
+    22370, 22544, 22719, 22894, 23069, 23243, 23418, 23593,
+    23768, 23942, 24117, 24292, 24467, 24642, 24816, 24991,
+    25166, 25341, 25515, 25690, 25865, 26040, 26214, 26389,
+    26564, 26739, 26913, 27088, 27263, 27438, 27613, 27787,
+    27962, 28137, 28312, 28486, 28661, 28836, 29011, 29185,
+    29360, 29535, 29710, 29884, 30059, 30234, 30409, 30583,
+    30758, 30933, 31108, 31283, 31457, 31632, 31807, 31982,
+    32156, 32331, 32506, 32681, 32855, 33030, 33205, 33380,
+    33554, 33729, 33904, 34079, 34253, 34428, 34603, 34778,
+    34953, 35127, 35302, 35477, 35652, 35826, 36001, 36176,
+    36351, 36525, 36700, 36875, 37050, 37224, 37399, 37574,
+    37749, 37923, 38098, 38273, 38448, 38623, 38797, 38972,
+    39147, 39322, 39496, 39671, 39846, 40021, 40195, 40370,
+    40545, 40720, 40894, 41069, 41244, 41419, 41594, 41768,
+    41943, 42118, 42293, 42467, 42642, 42817, 42992, 43166,
+    43341, 43516, 43691, 43865, 44040, 44215, 44390, 44564
+  };
 
+/* midi note tables */
+static unsigned char S_apu_seq_midi_note_number_table[128] = 
+  {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+     0,  0,  0,  0,  0,  0,  0,  0,  0,  9, 10, 11,
+    12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+    24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
+    36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+    48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
+    60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
+    72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
+    84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95,
+    96,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+     0,  0,  0,  0,  0,  0,  0
+  };
+
+static unsigned short S_apu_seq_midi_note_velocity_table[128] = 
+  { 4095, 1008, 1000,  992,  984,  976,  968,  960,
+     952,  944,  936,  928,  920,  912,  904,  896,
+     888,  880,  872,  864,  856,  848,  840,  832,
+     824,  816,  808,  800,  792,  784,  776,  768,
+     760,  752,  744,  736,  728,  720,  712,  704,
+     696,  688,  680,  672,  664,  656,  648,  640,
+     632,  624,  616,  608,  600,  592,  584,  576,
+     568,  560,  552,  544,  536,  528,  520,  512,
+     504,  496,  488,  480,  472,  464,  456,  448,
+     440,  432,  424,  416,  408,  400,  392,  384,
+     376,  368,  360,  352,  344,  336,  328,  320,
+     312,  304,  296,  288,  280,  272,  264,  256,
+     248,  240,  232,  224,  216,  208,  200,  192,
+     184,  176,  168,  160,  152,  144,  136,  128,
+     120,  112,  104,   96,   88,   80,   72,   64,
+      56,   48,   40,   32,   24,   16,    8,    0
+  };
 
 /*******/
 /* LFO */
@@ -315,7 +409,7 @@ static unsigned short S_apu_dco_val_to_db_table[8] =
 
 /* phase tables */
 static unsigned short S_apu_pcm_phase_incs[4] = 
-  { 22579, 24576, 45158, 49152 };
+  { 22629, 22837, 30106, 60211 };
 
 /* value to db table (8 bits) */
 static unsigned short S_apu_pcm_val_to_db_table[128] = 
@@ -438,7 +532,7 @@ static unsigned short S_apu_pcm_regs_bank[APU_PCM_REGS_BANK_SIZE];
 /* sequencer tracks */
 enum
 {
-  APU_SEQ_REG_NT_ROW = 0, 
+  APU_SEQ_REG_SONG_NO = 0, 
   APU_SEQ_REG_TEMPO, 
   APU_SEQ_REG_PHASE, 
   APU_SEQ_REG_INDEX, 
@@ -478,12 +572,12 @@ enum
   APU_NUM_WAVE_PARAMS 
 };
 
-#define APU_MAX_PATCHES 32
+#define APU_MAX_WAVE_PATCHES 32
 
-#define APU_NUM_WAVE_BYTES (32 / 2)
+#define APU_WAVETABLE_BYTES (32 / 2)
 
-#define APU_PATCH_BANK_SIZE     (APU_MAX_PATCHES * APU_NUM_WAVE_PARAMS)
-#define APU_WAVETABLE_BANK_SIZE (APU_MAX_PATCHES * APU_NUM_WAVE_BYTES)
+#define APU_PATCH_BANK_SIZE     (APU_MAX_WAVE_PATCHES * APU_NUM_WAVE_PARAMS)
+#define APU_WAVETABLE_BANK_SIZE (APU_MAX_WAVE_PATCHES * APU_WAVETABLE_BYTES)
 
 static unsigned char S_apu_patches[APU_PATCH_BANK_SIZE];
 static unsigned char S_apu_wavetables[APU_WAVETABLE_BANK_SIZE];
@@ -624,15 +718,15 @@ int apu_reset()
 
   for (m = 0; m < APU_NUM_SEQ_TRACKS; m++)
   {
-    APU_SEQ_REG(m, NT_ROW) = 0;
-    APU_SEQ_REG(m, TEMPO)  = 0;
-    APU_SEQ_REG(m, PHASE)  = 0;
-    APU_SEQ_REG(m, INDEX)  = 0;
-    APU_SEQ_REG(m, DELAY)  = 0;
+    APU_SEQ_REG(m, SONG_NO) = 0;
+    APU_SEQ_REG(m, TEMPO)   = 0;
+    APU_SEQ_REG(m, PHASE)   = 0;
+    APU_SEQ_REG(m, INDEX)   = 0;
+    APU_SEQ_REG(m, DELAY)   = 0;
   }
 
   /* reset patch params */
-  for (m = 0; m < APU_MAX_PATCHES; m++)
+  for (m = 0; m < APU_MAX_WAVE_PATCHES; m++)
   {
     APU_WAVE_PARAM(m, ENV_AR) = 0;
     APU_WAVE_PARAM(m, ENV_DR) = 0;
@@ -645,14 +739,14 @@ int apu_reset()
   }
 
   /* reset patch waves */
-  for (m = 0; m < APU_MAX_PATCHES; m++)
+  for (m = 0; m < APU_MAX_WAVE_PATCHES; m++)
   {
-    for (n = 0; n < APU_NUM_WAVE_BYTES; n++)
+    for (n = 0; n < APU_WAVETABLE_BYTES; n++)
     {
-      if (n < (APU_NUM_WAVE_BYTES / 2))
-        S_apu_wavetables[m * APU_NUM_WAVE_BYTES + n] = 0xFF;
+      if (n < (APU_WAVETABLE_BYTES / 2))
+        S_apu_wavetables[m * APU_WAVETABLE_BYTES + n] = 0xFF;
       else
-        S_apu_wavetables[m * APU_NUM_WAVE_BYTES + n] = 0x00;
+        S_apu_wavetables[m * APU_WAVETABLE_BYTES + n] = 0x00;
     }
   }
 
@@ -699,10 +793,13 @@ int apu_play_note(unsigned short inst_num, unsigned short note)
   if (inst_num >= APU_NUM_WAVE_VOICES)
     return 0;
 
-  if ((note < APU_NOTE_LOWEST) || (note > APU_NOTE_HIGHEST))
+  if (note >= 128)
     return 0;
 
-  APU_WAVE_REG(inst_num, NOTE) = note;
+  if (S_apu_seq_midi_note_number_table[note] == 0)
+    return 0;
+
+  APU_WAVE_REG(inst_num, NOTE) = S_apu_seq_midi_note_number_table[note];
 
   APU_WAVE_REG(inst_num, LFO_PHASE) = 0;
   APU_WAVE_REG(inst_num, LFO_INDEX) = 0;
