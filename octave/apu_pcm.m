@@ -2,8 +2,8 @@ clear;
 clc;
 
 % pcm phase incs
-pcm_1hz_inc = exp(log(2) * 16) / 32000; % 16 bit mantissa, 32 khz clock
-pcm_samp_rates = [11025, 12000, 22050, 24000];
+pcm_1hz_inc = exp(log(2) * 16) / 24000; % 16 bit mantissa, 24 khz clock
+pcm_samp_rates = [8287, 8363, 11025, 22050];
 
 pcm_phase_incs = round(pcm_1hz_inc * pcm_samp_rates);
 

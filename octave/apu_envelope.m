@@ -15,8 +15,8 @@ env_rise_val_to_db(1) = 4095;
 env_fall_val_to_db(1) = 4095;
 
 % patch param envelope speed mapping (32 values)
-patch_param_fall_speeds = round((0:31) * (11 / 4));
-patch_param_rise_speeds = 16 + patch_param_fall_speeds;
+env_fall_speeds = round((0:31) * (11 / 4));
+env_rise_speeds = 16 + env_fall_speeds;
 
 % print out tables
 printf("Envelope Phase Shifts Table: \n")
@@ -88,7 +88,7 @@ endfor
 printf("  };")
 printf("\n\n")
 
-printf("Patch Param Envelope Rise Speeds: \n");
+printf("Envelope Rise Speeds: \n");
 for m = 1:4
   if (m == 1)
     printf("  { ")
@@ -96,7 +96,7 @@ for m = 1:4
     printf("    ")
   endif
   for n = 1:8
-    printf("%3d", patch_param_rise_speeds(8 * (m - 1) + n))
+    printf("%3d", env_rise_speeds(8 * (m - 1) + n))
     if ((m < 4) || (n < 8))
       printf(", ")
     endif
@@ -106,7 +106,7 @@ endfor
 printf("  };")
 printf("\n\n")
 
-printf("Patch Param Envelope Fall Speeds: \n");
+printf("Envelope Fall Speeds: \n");
 for m = 1:4
   if (m == 1)
     printf("  { ")
@@ -114,7 +114,7 @@ for m = 1:4
     printf("    ")
   endif
   for n = 1:8
-    printf("%3d", patch_param_fall_speeds(8 * (m - 1) + n))
+    printf("%3d", env_fall_speeds(8 * (m - 1) + n))
     if ((m < 4) || (n < 8))
       printf(", ")
     endif
