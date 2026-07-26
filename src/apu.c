@@ -498,7 +498,7 @@ enum
   APU_NUM_WAVE_REGS 
 };
 
-#define APU_NUM_WAVE_VOICES (8 + 1)
+#define APU_NUM_WAVE_VOICES (9 + 1)
 
 #define APU_WAVE_REGS_BANK_SIZE (APU_NUM_WAVE_VOICES * APU_NUM_WAVE_REGS)
 
@@ -520,7 +520,7 @@ enum
   APU_NUM_PCM_REGS 
 };
 
-#define APU_NUM_PCM_VOICES (6 + 1)
+#define APU_NUM_PCM_VOICES (5 + 1)
 
 #define APU_PCM_REGS_BANK_SIZE (APU_NUM_PCM_VOICES * APU_NUM_PCM_REGS)
 
@@ -534,9 +534,9 @@ enum
 {
   APU_SEQ_REG_SONG_NO = 0, 
   APU_SEQ_REG_TEMPO, 
+  APU_SEQ_REG_DELAY, 
   APU_SEQ_REG_PHASE, 
   APU_SEQ_REG_INDEX, 
-  APU_SEQ_REG_DELAY, 
   APU_NUM_SEQ_REGS 
 };
 
@@ -561,47 +561,55 @@ static unsigned short S_apu_seq_regs_bank[APU_SEQ_REGS_BANK_SIZE];
 /* wave patches */
 enum
 {
-  APU_WAVE_PARAM_ENV_AR = 0, 
-  APU_WAVE_PARAM_ENV_DR, 
-  APU_WAVE_PARAM_ENV_SR, 
-  APU_WAVE_PARAM_ENV_RR, 
-  APU_WAVE_PARAM_ENV_SL, 
-  APU_WAVE_PARAM_LFO_SPEED, 
-  APU_WAVE_PARAM_VIB_SENS_DEPTH, 
-  APU_WAVE_PARAM_TREM_SENS_DEPTH, 
-  APU_NUM_WAVE_PARAMS 
+  APU_PATCH_PARAM_ENV_AR = 0, 
+  APU_PATCH_PARAM_ENV_DR, 
+  APU_PATCH_PARAM_ENV_SR, 
+  APU_PATCH_PARAM_ENV_RR, 
+  APU_PATCH_PARAM_ENV_SL, 
+  APU_PATCH_PARAM_LFO_SPEED, 
+  APU_PATCH_PARAM_VIB_SENS_DEPTH, 
+  APU_PATCH_PARAM_TREM_SENS_DEPTH, 
+  APU_NUM_PATCH_PARAMS 
 };
 
-#define APU_MAX_WAVE_PATCHES 32
+#define APU_MAX_PATCHES 32
 
-#define APU_WAVETABLE_BYTES (32 / 2)
+#define APU_PATCH_WAVETABLE_SIZE 16
+#define APU_PATCH_TOTAL_SIZE (APU_NUM_PATCH_PARAMS + APU_PATCH_WAVETABLE_SIZE)
 
-#define APU_PATCH_BANK_SIZE     (APU_MAX_WAVE_PATCHES * APU_NUM_WAVE_PARAMS)
-#define APU_WAVETABLE_BANK_SIZE (APU_MAX_WAVE_PATCHES * APU_WAVETABLE_BYTES)
+#define APU_PATCH_BANK_SIZE (APU_MAX_PATCHES * APU_PATCH_TOTAL_SIZE)
 
 static unsigned char S_apu_patches[APU_PATCH_BANK_SIZE];
-static unsigned char S_apu_wavetables[APU_WAVETABLE_BANK_SIZE];
 
-#define APU_WAVE_PARAM(patch_num, param)                                      \
-  S_apu_patches[(patch_num) * APU_NUM_WAVE_PARAMS + APU_WAVE_PARAM_##param]
+#define APU_PATCH_PARAM(patch_num, param)                                      \
+  S_apu_patches[(patch_num) * APU_PATCH_TOTAL_SIZE + APU_PATCH_PARAM_##param]
 
-/* drum patches */
+#define APU_PATCH_WAVETABLE(patch_num, byte_num)                               \
+  S_apu_patches[(patch_num) * APU_PATCH_TOTAL_SIZE +                           \
+                APU_NUM_PATCH_PARAMS + (byte_num)]
+
+/* drum kits */
 enum
 {
-  APU_DRUM_PARAM_KICK = 0, 
-  APU_DRUM_PARAM_SNARE, 
-  APU_DRUM_PARAM_HH_O, 
-  APU_DRUM_PARAM_HH_C, 
-  APU_DRUM_PARAM_CYM, 
-  APU_DRUM_PARAM_RIDE, 
-  APU_DRUM_PARAM_TOM_L, 
-  APU_DRUM_PARAM_TOM_M, 
-  APU_DRUM_PARAM_TOM_H, 
-  APU_DRUM_PARAM_RIM, 
-  APU_DRUM_PARAM_CLAP, 
-  APU_DRUM_PARAM_COW, 
-  APU_NUM_DRUM_PARAMS 
+  APU_KIT_PARAM_SAMPLE_NO_BD = 0, 
+  APU_KIT_PARAM_SAMPLE_NO_SD, 
+  APU_KIT_PARAM_SAMPLE_NO_OH, 
+  APU_KIT_PARAM_SAMPLE_NO_CH, 
+  APU_KIT_PARAM_SAMPLE_NO_CY, 
+  APU_KIT_PARAM_SAMPLE_NO_RD, 
+  APU_KIT_PARAM_SAMPLE_NO_LT, 
+  APU_KIT_PARAM_SAMPLE_NO_HT, 
+  APU_NUM_KIT_PARAMS 
 };
+
+#define APU_MAX_KITS 8
+
+#define APU_KIT_BANK_SIZE (APU_MAX_KITS * APU_NUM_KIT_PARAMS)
+
+static unsigned char S_apu_kits[APU_KIT_BANK_SIZE];
+
+#define APU_KIT_PARAM(kit_num, param)                                          \
+  S_apu_kits[(kit_num) * APU_NUM_KIT_PARAMS + APU_KIT_PARAM_##param]
 
 /**************/
 /* NAMETABLES */
@@ -615,14 +623,15 @@ enum
   APU_SAMPLE_PARAM_ADDR_3, 
   APU_SAMPLE_PARAM_SIZE_1, 
   APU_SAMPLE_PARAM_SIZE_2, 
+  APU_SAMPLE_PARAM_RATE, 
   APU_NUM_SAMPLE_PARAMS 
 };
 
 #define APU_MAX_SAMPLES 64
 
-#define APU_SAMPLE_BANK_SIZE (APU_MAX_SAMPLES * APU_NUM_SAMPLE_PARAMS)
+#define APU_SAMPLE_NAMETABLE_SIZE (APU_MAX_SAMPLES * APU_NUM_SAMPLE_PARAMS)
 
-static unsigned char S_apu_samples[APU_SAMPLE_BANK_SIZE];
+static unsigned char S_apu_samples[APU_SAMPLE_NAMETABLE_SIZE];
 
 #define APU_SAMPLE_PARAM(samp_num, param)                                      \
   S_apu_samples[(samp_num) * APU_NUM_SAMPLE_PARAMS + APU_SAMPLE_PARAM_##param]
@@ -640,12 +649,12 @@ enum
 
 #define APU_MAX_SONGS 32
 
-#define APU_SONG_BANK_SIZE (APU_MAX_SONGS * APU_NUM_SONG_PARAMS)
+#define APU_SONG_NAMETABLE_SIZE (APU_MAX_SONGS * APU_NUM_SONG_PARAMS)
 
-static unsigned char S_apu_songs[APU_SONG_BANK_SIZE];
+static unsigned char S_apu_songs[APU_SONG_NAMETABLE_SIZE];
 
 #define APU_SONG_PARAM(song_num, param)                                        \
-  S_apu_songs[(song_num) * APU_NUM_SONG_PARAMS + APU_WAVE_PARAM_##param]
+  S_apu_songs[(song_num) * APU_NUM_SONG_PARAMS + APU_SONG_PARAM_##param]
 
 /********/
 /* ROMS */
@@ -670,7 +679,6 @@ short G_apu_out_R;
 int apu_reset()
 {
   int m;
-  int n;
 
   S_apu_timer = 0;
 
@@ -725,30 +733,75 @@ int apu_reset()
     APU_SEQ_REG(m, DELAY)   = 0;
   }
 
-  /* reset patch params */
-  for (m = 0; m < APU_MAX_WAVE_PATCHES; m++)
+  /* reset params */
+  for (m = 0; m < APU_MAX_PATCHES; m++)
   {
-    APU_WAVE_PARAM(m, ENV_AR) = 0;
-    APU_WAVE_PARAM(m, ENV_DR) = 0;
-    APU_WAVE_PARAM(m, ENV_SR) = 0;
-    APU_WAVE_PARAM(m, ENV_RR) = 0;
-    APU_WAVE_PARAM(m, ENV_SL) = 0;
-    APU_WAVE_PARAM(m, LFO_SPEED) = 0;
-    APU_WAVE_PARAM(m, VIB_SENS_DEPTH) = 0;
-    APU_WAVE_PARAM(m, TREM_SENS_DEPTH) = 0;
+    APU_PATCH_PARAM(m, ENV_AR) = 0;
+    APU_PATCH_PARAM(m, ENV_DR) = 0;
+    APU_PATCH_PARAM(m, ENV_SR) = 0;
+    APU_PATCH_PARAM(m, ENV_RR) = 0;
+    APU_PATCH_PARAM(m, ENV_SL) = 0;
+    APU_PATCH_PARAM(m, LFO_SPEED) = 0;
+    APU_PATCH_PARAM(m, VIB_SENS_DEPTH) = 0;
+    APU_PATCH_PARAM(m, TREM_SENS_DEPTH) = 0;
+
+    APU_PATCH_WAVETABLE(m,  0) = 0xFF;
+    APU_PATCH_WAVETABLE(m,  1) = 0xFF;
+    APU_PATCH_WAVETABLE(m,  2) = 0xFF;
+    APU_PATCH_WAVETABLE(m,  3) = 0xFF;
+    APU_PATCH_WAVETABLE(m,  4) = 0xFF;
+    APU_PATCH_WAVETABLE(m,  5) = 0xFF;
+    APU_PATCH_WAVETABLE(m,  6) = 0xFF;
+    APU_PATCH_WAVETABLE(m,  7) = 0xFF;
+
+    APU_PATCH_WAVETABLE(m,  8) = 0x00;
+    APU_PATCH_WAVETABLE(m,  9) = 0x00;
+    APU_PATCH_WAVETABLE(m, 10) = 0x00;
+    APU_PATCH_WAVETABLE(m, 11) = 0x00;
+    APU_PATCH_WAVETABLE(m, 12) = 0x00;
+    APU_PATCH_WAVETABLE(m, 13) = 0x00;
+    APU_PATCH_WAVETABLE(m, 14) = 0x00;
+    APU_PATCH_WAVETABLE(m, 15) = 0x00;
   }
 
-  /* reset patch waves */
-  for (m = 0; m < APU_MAX_WAVE_PATCHES; m++)
+  for (m = 0; m < APU_MAX_KITS; m++)
   {
-    for (n = 0; n < APU_WAVETABLE_BYTES; n++)
-    {
-      if (n < (APU_WAVETABLE_BYTES / 2))
-        S_apu_wavetables[m * APU_WAVETABLE_BYTES + n] = 0xFF;
-      else
-        S_apu_wavetables[m * APU_WAVETABLE_BYTES + n] = 0x00;
-    }
+    APU_KIT_PARAM(m, SAMPLE_NO_BD) = 0;
+    APU_KIT_PARAM(m, SAMPLE_NO_SD) = 0;
+    APU_KIT_PARAM(m, SAMPLE_NO_OH) = 0;
+    APU_KIT_PARAM(m, SAMPLE_NO_CH) = 0;
+    APU_KIT_PARAM(m, SAMPLE_NO_CY) = 0;
+    APU_KIT_PARAM(m, SAMPLE_NO_RD) = 0;
+    APU_KIT_PARAM(m, SAMPLE_NO_LT) = 0;
+    APU_KIT_PARAM(m, SAMPLE_NO_HT) = 0;
   }
+
+  /* reset nametables */
+  for (m = 0; m < APU_MAX_SAMPLES; m++)
+  {
+    APU_SAMPLE_PARAM(m, ADDR_1) = 0x00;
+    APU_SAMPLE_PARAM(m, ADDR_2) = 0x00;
+    APU_SAMPLE_PARAM(m, ADDR_3) = 0x00;
+    APU_SAMPLE_PARAM(m, SIZE_1) = 0x00;
+    APU_SAMPLE_PARAM(m, SIZE_2) = 0x00;
+    APU_SAMPLE_PARAM(m, RATE)   = 0;
+  }
+
+  for (m = 0; m < APU_MAX_SONGS; m++)
+  {
+    APU_SONG_PARAM(m, ADDR_1) = 0x00;
+    APU_SONG_PARAM(m, ADDR_2) = 0x00;
+    APU_SONG_PARAM(m, ADDR_3) = 0x00;
+    APU_SONG_PARAM(m, SIZE_1) = 0x00;
+    APU_SONG_PARAM(m, SIZE_2) = 0x00;
+  }
+
+  /* reset roms */
+  for (m = 0; m < APU_MIDI_DATA_SIZE; m++)
+    S_apu_midi_data[m] = 0;
+
+  for (m = 0; m < APU_PCM_DATA_SIZE; m++)
+    S_apu_pcm_data[m] = 0;
 
   /* reset filters */
   for (m = 0; m < 2; m++)
@@ -772,15 +825,15 @@ int apu_reset()
   G_apu_out_L = 0;
   G_apu_out_R = 0;
 
-  /* testing: setup the 1st oscillator */
-  APU_WAVE_PARAM(0, ENV_AR) = 31;
-  APU_WAVE_PARAM(0, ENV_DR) = 16;
-  APU_WAVE_PARAM(0, ENV_SR) = 8;
-  APU_WAVE_PARAM(0, ENV_RR) = 16;
-  APU_WAVE_PARAM(0, ENV_SL) = 8;
-  APU_WAVE_PARAM(0, LFO_SPEED) = 24;
-  APU_WAVE_PARAM(0, VIB_SENS_DEPTH) =  (1 << 3) | 7;
-  APU_WAVE_PARAM(0, TREM_SENS_DEPTH) = (0 << 3) | 0;
+  /* testing: setup the 1st patch */
+  APU_PATCH_PARAM(0, ENV_AR) = 31;
+  APU_PATCH_PARAM(0, ENV_DR) = 16;
+  APU_PATCH_PARAM(0, ENV_SR) = 8;
+  APU_PATCH_PARAM(0, ENV_RR) = 16;
+  APU_PATCH_PARAM(0, ENV_SL) = 8;
+  APU_PATCH_PARAM(0, LFO_SPEED) = 24;
+  APU_PATCH_PARAM(0, VIB_SENS_DEPTH) =  (1 << 3) | 7;
+  APU_PATCH_PARAM(0, TREM_SENS_DEPTH) = (0 << 3) | 0;
 
   return 0;
 }
@@ -828,6 +881,8 @@ int apu_advance_lfos()
 {
   int m;
 
+  unsigned short patch_num;
+
   unsigned short increment;
   unsigned short vib_level;
   unsigned short trem_level;
@@ -840,8 +895,11 @@ int apu_advance_lfos()
 
   for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
   {
+    /* obtain patch number */
+    patch_num = APU_WAVE_REG(m, PATCH_NO);
+
     /* lookup phase increment */
-    increment = S_apu_lfo_phase_incs_table[APU_WAVE_PARAM(m, LFO_SPEED)];
+    increment = S_apu_lfo_phase_incs_table[APU_PATCH_PARAM(patch_num, LFO_SPEED)];
 
     /* update phase, check for wraparound */
     APU_WAVE_REG(m, LFO_PHASE) += increment;
@@ -861,11 +919,11 @@ int apu_advance_lfos()
       wave_step = 31 - APU_WAVE_REG(m, LFO_INDEX);
 
     /* obtain depth and sensitivity params */
-    vib_depth = APU_WAVE_PARAM(m, VIB_SENS_DEPTH) & 0x07;
-    vib_sens = (APU_WAVE_PARAM(m, VIB_SENS_DEPTH) >> 3) & 0x03;
+    vib_depth = APU_PATCH_PARAM(patch_num, VIB_SENS_DEPTH) & 0x07;
+    vib_sens = (APU_PATCH_PARAM(patch_num, VIB_SENS_DEPTH) >> 3) & 0x03;
 
-    trem_depth = APU_WAVE_PARAM(m, TREM_SENS_DEPTH) & 0x07;
-    trem_sens = (APU_WAVE_PARAM(m, TREM_SENS_DEPTH) >> 3) & 0x01;
+    trem_depth = APU_PATCH_PARAM(patch_num, TREM_SENS_DEPTH) & 0x07;
+    trem_sens = (APU_PATCH_PARAM(patch_num, TREM_SENS_DEPTH) >> 3) & 0x01;
 
     /* determine initial levels */
     vib_level = wave_step * S_apu_lfo_step_sizes_table[8 * vib_depth + 0];
@@ -893,6 +951,8 @@ int apu_advance_envelopes()
 {
   int m;
 
+  unsigned short patch_num;
+
   unsigned short block;
   unsigned short entry;
   unsigned short increment;
@@ -901,15 +961,18 @@ int apu_advance_envelopes()
 
   for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
   {
+    /* obtain patch number */
+    patch_num = APU_WAVE_REG(m, PATCH_NO);
+
     /* determine envelope rate */
     if (APU_WAVE_REG(m, ENV_STAGE) == APU_ENV_STAGE_A)
-      rate = S_apu_env_rise_rate_table[APU_WAVE_PARAM(m, ENV_AR)];
+      rate = S_apu_env_rise_rate_table[APU_PATCH_PARAM(patch_num, ENV_AR)];
     else if (APU_WAVE_REG(m, ENV_STAGE) == APU_ENV_STAGE_D)
-      rate = S_apu_env_fall_rate_table[APU_WAVE_PARAM(m, ENV_DR)];
+      rate = S_apu_env_fall_rate_table[APU_PATCH_PARAM(patch_num, ENV_DR)];
     else if (APU_WAVE_REG(m, ENV_STAGE) == APU_ENV_STAGE_S)
-      rate = S_apu_env_fall_rate_table[APU_WAVE_PARAM(m, ENV_SR)];
+      rate = S_apu_env_fall_rate_table[APU_PATCH_PARAM(patch_num, ENV_SR)];
     else
-      rate = S_apu_env_fall_rate_table[APU_WAVE_PARAM(m, ENV_RR)];
+      rate = S_apu_env_fall_rate_table[APU_PATCH_PARAM(patch_num, ENV_RR)];
 
     /* lookup phase increment */
     block = rate / APU_ENV_PHASE_TABLE_SIZE;
@@ -945,7 +1008,7 @@ int apu_advance_envelopes()
         else
           APU_WAVE_REG(m, ENV_INDEX) = 0;
 
-        if (APU_WAVE_REG(m, ENV_INDEX) <= (48 + APU_WAVE_PARAM(m, ENV_SL)))
+        if (APU_WAVE_REG(m, ENV_INDEX) <= (48 + APU_PATCH_PARAM(patch_num, ENV_SL)))
           APU_WAVE_REG(m, ENV_STAGE) = APU_ENV_STAGE_S;
       }
       /* sustain & release */
@@ -981,11 +1044,12 @@ int apu_advance_dcos()
 {
   int m;
 
+  unsigned short patch_num;
+
   unsigned short block;
   unsigned short entry;
   unsigned short increment;
 
-  unsigned short addr;
   unsigned char  code;
 
   int phase_index;
@@ -993,6 +1057,9 @@ int apu_advance_dcos()
 
   for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
   {
+    /* obtain patch number */
+    patch_num = APU_WAVE_REG(m, PATCH_NO);
+
     /* lookup phase increment, apply vibrato */
     phase_index = APU_WAVE_REG(m, NOTE) * 64;
     phase_index += APU_WAVE_REG(m, VIB_LEVEL);
@@ -1021,13 +1088,12 @@ int apu_advance_dcos()
     }
 
     /* wavetable lookup */
-    addr = 0;
-    addr += (APU_WAVE_REG(m, DCO_INDEX) / 2);
+    code = APU_PATCH_WAVETABLE(patch_num, (APU_WAVE_REG(m, DCO_INDEX) / 2));
 
     if ((APU_WAVE_REG(m, DCO_INDEX) % 2) == 0)
-      code = (S_apu_wavetables[addr] >> 4) & 0x0F;
+      code = (code >> 4) & 0x0F;
     else
-      code = S_apu_wavetables[addr] & 0x0F;
+      code = code & 0x0F;
 
     /* determine wave level, apply envelope and tremolo */
     if (code >= 8)
