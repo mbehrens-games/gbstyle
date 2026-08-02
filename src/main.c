@@ -25,7 +25,11 @@ int main(int argc, char *argv[])
   apu_reset();
 
   /* load midi file */
+#if 0
   midi_import_file("touhou_6_apparitions.mid");
+#else
+  midi_import_file("megamari_cirno_zenkusa.mid");
+#endif
 
   /* just try writing out some stuff */
   wav_export_open_file("test_01.wav");

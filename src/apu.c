@@ -29,17 +29,17 @@
 
 static unsigned short S_apu_timer;
 
-/********************/
-/* VOLUME & PANNING */
-/********************/
+/**********/
+/* VOLUME */
+/**********/
 
-/* volume db to linear table */
-#define APU_VOL_LIN_NUM_BLOCKS 16  /* blocks 0 to 15 */
-#define APU_VOL_LIN_TABLE_SIZE 256
+/* db to linear table */
+#define APU_DB_TO_LIN_NUM_BLOCKS 16   /* blocks 0 to 15 */
+#define APU_DB_TO_LIN_TABLE_SIZE 256
 
-#define APU_VOL_LIN_MAX_INDEX  4095 /* num_blocks * table_size - 1 */
+#define APU_DB_TO_LIN_MAX_INDEX  4095 /* num_blocks * table_size - 1 */
 
-static unsigned short S_apu_vol_lin_table[APU_VOL_LIN_TABLE_SIZE] = 
+static unsigned short S_apu_db_to_linear_table[APU_DB_TO_LIN_TABLE_SIZE] = 
   { 32768, 32679, 32591, 32503, 32415, 32327, 32240, 32153,
     32066, 31979, 31893, 31806, 31720, 31635, 31549, 31464,
     31379, 31294, 31209, 31125, 31041, 30957, 30873, 30790,
@@ -74,6 +74,7 @@ static unsigned short S_apu_vol_lin_table[APU_VOL_LIN_TABLE_SIZE] =
     16743, 16697, 16652, 16607, 16562, 16518, 16473, 16428
   };
 
+/* volume and panning */
 static unsigned short S_apu_inst_vol_table[128] = 
   { 4095, 1512, 1500, 1488, 1476, 1464, 1452, 1440,
     1428, 1416, 1404, 1392, 1380, 1368, 1356, 1344,
@@ -213,9 +214,9 @@ static unsigned short S_apu_lfo_step_sizes_table[64] =
     17, 17, 17, 17, 17, 17, 17, 17
   };
 
-/************/
-/* ENVELOPE */
-/************/
+/*******/
+/* VCA */
+/*******/
 
 /* stages */
 enum
@@ -699,11 +700,11 @@ int apu_reset()
     APU_WAVE_REG(m, ENV_STAGE)  = APU_ENV_STAGE_R;
     APU_WAVE_REG(m, ENV_PHASE)  = 0;
     APU_WAVE_REG(m, ENV_INDEX)  = 0;
-    APU_WAVE_REG(m, ENV_LEVEL)  = APU_VOL_LIN_MAX_INDEX;
+    APU_WAVE_REG(m, ENV_LEVEL)  = APU_DB_TO_LIN_MAX_INDEX;
 
     APU_WAVE_REG(m, DCO_PHASE)  = 0;
     APU_WAVE_REG(m, DCO_INDEX)  = 0;
-    APU_WAVE_REG(m, DCO_LEVEL)  = APU_VOL_LIN_MAX_INDEX;
+    APU_WAVE_REG(m, DCO_LEVEL)  = APU_DB_TO_LIN_MAX_INDEX;
 
     APU_WAVE_REG(m, WHEEL_PITCH) = 0;
     APU_WAVE_REG(m, WHEEL_VIB)   = 0;
@@ -721,7 +722,7 @@ int apu_reset()
 
     APU_PCM_REG(m, PHASE) = 0;
     APU_PCM_REG(m, INDEX) = 0;
-    APU_PCM_REG(m, LEVEL) = APU_VOL_LIN_MAX_INDEX;
+    APU_PCM_REG(m, LEVEL) = APU_DB_TO_LIN_MAX_INDEX;
   }
 
   for (m = 0; m < APU_NUM_SEQ_TRACKS; m++)
@@ -1104,8 +1105,8 @@ int apu_advance_dcos()
     final_level_db += APU_WAVE_REG(m, ENV_LEVEL);
     final_level_db += APU_WAVE_REG(m, TREM_LEVEL);
 
-    if (final_level_db > APU_VOL_LIN_MAX_INDEX)
-      final_level_db = APU_VOL_LIN_MAX_INDEX;
+    if (final_level_db > APU_DB_TO_LIN_MAX_INDEX)
+      final_level_db = APU_DB_TO_LIN_MAX_INDEX;
     else if (final_level_db < 0)
       final_level_db = 0;
 
@@ -1140,10 +1141,10 @@ int apu_advance_sample()
 
   for (m = 0; m < APU_NUM_WAVE_VOICES; m++)
   {
-    block = (APU_WAVE_REG(m, DCO_LEVEL) & 0x0FFF) / APU_VOL_LIN_TABLE_SIZE;
-    entry = (APU_WAVE_REG(m, DCO_LEVEL) & 0x0FFF) % APU_VOL_LIN_TABLE_SIZE;
+    block = (APU_WAVE_REG(m, DCO_LEVEL) & 0x0FFF) / APU_DB_TO_LIN_TABLE_SIZE;
+    entry = (APU_WAVE_REG(m, DCO_LEVEL) & 0x0FFF) % APU_DB_TO_LIN_TABLE_SIZE;
 
-    voice_level = S_apu_vol_lin_table[entry];
+    voice_level = S_apu_db_to_linear_table[entry];
 
     if (block > 0)
       voice_level = voice_level >> block;
